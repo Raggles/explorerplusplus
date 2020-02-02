@@ -4,24 +4,23 @@
 
 #pragma once
 
+#include "CoreInterface.h"
 #include "../Helper/BaseDialog.h"
-#include "../Helper/ResizableDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/FileActionHandler.h"
+#include "../Helper/ResizableDialog.h"
 
-class CMassRenameDialog;
+class MassRenameDialog;
 
-class CMassRenameDialogPersistentSettings : public CDialogSettings
+class MassRenameDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CMassRenameDialogPersistentSettings();
-
-	static CMassRenameDialogPersistentSettings &GetInstance();
+	static MassRenameDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CMassRenameDialog;
+	friend MassRenameDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
@@ -30,10 +29,10 @@ private:
 
 	static const int DEFAULT_MASS_RENAME_COLUMN_WIDTH = 250;
 
-	CMassRenameDialogPersistentSettings();
+	MassRenameDialogPersistentSettings();
 
-	CMassRenameDialogPersistentSettings(const CMassRenameDialogPersistentSettings &);
-	CMassRenameDialogPersistentSettings & operator=(const CMassRenameDialogPersistentSettings &);
+	MassRenameDialogPersistentSettings(const MassRenameDialogPersistentSettings &);
+	MassRenameDialogPersistentSettings & operator=(const MassRenameDialogPersistentSettings &);
 
 	void SaveExtraRegistrySettings(HKEY hKey);
 	void LoadExtraRegistrySettings(HKEY hKey);
@@ -45,23 +44,24 @@ private:
 	int	m_iColumnWidth2;
 };
 
-class CMassRenameDialog : public CBaseDialog
+class MassRenameDialog : public BaseDialog
 {
 public:
 
-	CMassRenameDialog(HINSTANCE hInstance,int iResource,HWND hParent,std::list<std::wstring> FullFilenameList,CFileActionHandler *pFileActionHandler);
-	~CMassRenameDialog();
+	MassRenameDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
+		std::list<std::wstring> FullFilenameList, FileActionHandler *pFileActionHandler);
 
 protected:
 
 	INT_PTR	OnInitDialog();
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
+
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
-	void	GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void	SaveState();
 
 	void	OnOk();
@@ -69,10 +69,10 @@ private:
 
 	void	ProcessFileName(const std::wstring &strTarget,const std::wstring &strFilename,int iFileIndex,std::wstring &strOutput);
 
-	std::list<std::wstring>	m_FullFilenameList;
-	HICON					m_hDialogIcon;
-	HICON					m_hMoreIcon;
-	CFileActionHandler		*m_pFileActionHandler;
+	IExplorerplusplus *m_expp;
+	std::list<std::wstring> m_FullFilenameList;
+	wil::unique_hicon m_moreIcon;
+	FileActionHandler *m_pFileActionHandler;
 
-	CMassRenameDialogPersistentSettings	*m_pmrdps;
+	MassRenameDialogPersistentSettings *m_persistentSettings;
 };

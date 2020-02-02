@@ -5,41 +5,37 @@
 #pragma once
 
 #include "CoreInterface.h"
-#include "TabInterface.h"
 #include "TabContainer.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ResizableDialog.h"
 
-class CSelectColumnsDialog;
+class SelectColumnsDialog;
 
-class CSelectColumnsDialogPersistentSettings : public CDialogSettings
+class SelectColumnsDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CSelectColumnsDialogPersistentSettings();
-
-	static CSelectColumnsDialogPersistentSettings &GetInstance();
+	static SelectColumnsDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CSelectColumnsDialog;
+	friend SelectColumnsDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
-	CSelectColumnsDialogPersistentSettings();
+	SelectColumnsDialogPersistentSettings();
 
-	CSelectColumnsDialogPersistentSettings(const CSelectColumnsDialogPersistentSettings &);
-	CSelectColumnsDialogPersistentSettings & operator=(const CSelectColumnsDialogPersistentSettings &);
+	SelectColumnsDialogPersistentSettings(const SelectColumnsDialogPersistentSettings &);
+	SelectColumnsDialogPersistentSettings & operator=(const SelectColumnsDialogPersistentSettings &);
 };
 
-class CSelectColumnsDialog : public CBaseDialog
+class SelectColumnsDialog : public BaseDialog
 {
 public:
 
-	CSelectColumnsDialog(HINSTANCE hInstance, int iResource, HWND hParent, IExplorerplusplus *pexpp,
-		TabContainer *tabContainer, TabInterface *ti);
-	~CSelectColumnsDialog();
+	SelectColumnsDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *pexpp,
+		TabContainer *tabContainer);
 
 protected:
 
@@ -47,26 +43,25 @@ protected:
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnNotify(NMHDR *pnmhdr);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
+
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
 	bool	CompareColumns(const Column_t &column1, const Column_t &column2);
 
-	void	GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void	SaveState();
 
 	void	OnOk();
 	void	OnCancel();
-	void	OnLvnItemChanged(NMLISTVIEW *pnmlv);
+	BOOL	OnLvnItemChanging(const NMLISTVIEW *nmlv);
+	void	OnLvnItemChanged(const NMLISTVIEW *pnmlv);
 	void	OnMoveColumn(bool bUp);
 
-	IExplorerplusplus	*m_pexpp;
-	TabContainer	*m_tabContainer;
-	TabInterface	*m_ti;
-	BOOL	m_bColumnsSwapped;
+	IExplorerplusplus *m_pexpp;
+	TabContainer *m_tabContainer;
+	BOOL m_bColumnsSwapped;
 
-	HICON	m_hDialogIcon;
-
-	CSelectColumnsDialogPersistentSettings	*m_pscdps;
+	SelectColumnsDialogPersistentSettings *m_persistentSettings;
 };

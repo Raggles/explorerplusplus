@@ -4,12 +4,11 @@
 
 #pragma once
 
-class CMessageForwarder
+class MessageForwarder
 {
 public:
 
-	CMessageForwarder();
-	virtual ~CMessageForwarder();
+	virtual ~MessageForwarder() = default;
 
 protected:
 

@@ -4,57 +4,16 @@
 
 #pragma once
 
-#include "ShellBrowser/iShellView.h"
+#include "CoreInterface.h"
+#include "ShellBrowser/FolderSettings.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "TabNavigationInterface.h"
 #include "../Helper/Macros.h"
 #include <boost/optional.hpp>
 #include <boost/parameter.hpp>
 #include <boost/signals2.hpp>
 
-BOOST_PARAMETER_NAME(name)
-BOOST_PARAMETER_NAME(index)
-BOOST_PARAMETER_NAME(selected)
-BOOST_PARAMETER_NAME(locked)
-BOOST_PARAMETER_NAME(addressLocked)
-
-// The use of Boost Parameter here allows values to be set by name
-// during construction. It would be better (and simpler) for this to be
-// done using designated initializers, but that feature's not due to be
-// introduced until C++20.
-struct TabSettingsImpl
-{
-	template <class ArgumentPack>
-	TabSettingsImpl(const ArgumentPack &args)
-	{
-		name = args[_name | boost::none];
-		index = args[_index | boost::none];
-		selected = args[_selected | boost::none];
-		locked = args[_locked | boost::none];
-		addressLocked = args[_addressLocked | boost::none];
-	}
-
-	boost::optional<std::wstring> name;
-	boost::optional<int> index;
-	boost::optional<bool> selected;
-	boost::optional<bool> locked;
-	boost::optional<bool> addressLocked;
-};
-
-// Used when creating a tab.
-struct TabSettings : TabSettingsImpl
-{
-	BOOST_PARAMETER_CONSTRUCTOR(
-		TabSettings,
-		(TabSettingsImpl),
-		tag,
-		(optional
-			(name, (std::wstring))
-			(index, (int))
-			(selected, (bool))
-			(locked, (bool))
-			(addressLocked, (bool))
-		)
-	)
-};
+struct PreservedTab;
 
 class Tab
 {
@@ -62,33 +21,36 @@ public:
 
 	enum class PropertyType
 	{
-		LOCKED,
-		ADDRESS_LOCKED,
-		NAME
+		Name,
+		LockState
+	};
+
+	enum class LockState
+	{
+		NotLocked,
+		Locked,
+		AddressLocked
 	};
 
 	typedef boost::signals2::signal<void(const Tab &tab, PropertyType propertyType)> TabUpdatedSignal;
 
-	explicit Tab(int id);
+	Tab(IExplorerplusplus *expp, TabNavigationInterface *tabNavigation, const FolderSettings *folderSettings,
+		boost::optional<FolderColumns> initialColumns);
+	Tab(const PreservedTab &preservedTab, IExplorerplusplus *expp, TabNavigationInterface *tabNavigation);
 
 	int GetId() const;
 
-	CShellBrowser *GetShellBrowser() const;
-	void SetShellBrowser(CShellBrowser *shellBrowser);
+	ShellBrowser *GetShellBrowser() const;
 
 	std::wstring GetName() const;
 	bool GetUseCustomName() const;
 	void SetCustomName(const std::wstring &name);
 	void ClearCustomName();
 
-	bool GetLocked() const;
-	void SetLocked(bool locked);
-	bool GetAddressLocked() const;
-	void SetAddressLocked(bool addressLocked);
+	LockState GetLockState() const;
+	void SetLockState(LockState lockState);
 
 	boost::signals2::connection AddTabUpdatedObserver(const TabUpdatedSignal::slot_type &observer);
-
-	HWND	listView;
 
 	/* Although each tab manages its
 	own columns, it does not know
@@ -101,12 +63,14 @@ private:
 
 	DISALLOW_COPY_AND_ASSIGN(Tab);
 
+	static int idCounter;
 	const int m_id;
-	CShellBrowser *m_shellBrowser;
+
+	ShellBrowser *m_shellBrowser;
+
 	bool m_useCustomName;
 	std::wstring m_customName;
-	bool m_locked;
-	bool m_addressLocked;
+	LockState m_lockState;
 
 	TabUpdatedSignal m_tabUpdatedSignal;
 };

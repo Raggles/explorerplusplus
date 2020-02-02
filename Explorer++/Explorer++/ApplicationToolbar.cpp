@@ -19,6 +19,7 @@
 #include "ApplicationToolbarDropHandler.h"
 #include "Explorer++_internal.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "../Helper/Controls.h"
 #include "../Helper/Macros.h"
 #include "../Helper/RegistrySettings.h"
@@ -26,27 +27,26 @@
 #include "../Helper/XMLSettings.h"
 #include <boost\algorithm\string.hpp>
 
+const TCHAR ApplicationToolbarPersistentSettings::SETTING_NAME[] = _T("Name");
+const TCHAR ApplicationToolbarPersistentSettings::SETTING_COMMAND[] = _T("Command");
+const TCHAR ApplicationToolbarPersistentSettings::SETTING_SHOW_NAME_ON_TOOLBAR[] = _T("ShowNameOnToolbar");
 
-const TCHAR CApplicationToolbarPersistentSettings::SETTING_NAME[] = _T("Name");
-const TCHAR CApplicationToolbarPersistentSettings::SETTING_COMMAND[] = _T("Command");
-const TCHAR CApplicationToolbarPersistentSettings::SETTING_SHOW_NAME_ON_TOOLBAR[] = _T("ShowNameOnToolbar");
-
-CApplicationToolbar *CApplicationToolbar::Create(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance, IExplorerplusplus *pexpp)
+ApplicationToolbar *ApplicationToolbar::Create(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance, IExplorerplusplus *pexpp)
 {
-	return new CApplicationToolbar(hParent, uIDStart, uIDEnd, hInstance, pexpp);
+	return new ApplicationToolbar(hParent, uIDStart, uIDEnd, hInstance, pexpp);
 }
 
-CApplicationToolbar::CApplicationToolbar(HWND hParent,UINT uIDStart,UINT uIDEnd,HINSTANCE hInstance,IExplorerplusplus *pexpp) :
-CBaseWindow(CreateApplicationToolbar(hParent)),
+ApplicationToolbar::ApplicationToolbar(HWND hParent,UINT uIDStart,UINT uIDEnd,HINSTANCE hInstance,IExplorerplusplus *pexpp) :
+BaseWindow(CreateApplicationToolbar(hParent)),
+m_hInstance(hInstance),
 m_uIDStart(uIDStart),
 m_uIDEnd(uIDEnd),
-m_hInstance(hInstance),
 m_pexpp(pexpp)
 {
 	Initialize(hParent);
 }
 
-HWND CApplicationToolbar::CreateApplicationToolbar(HWND hParent)
+HWND ApplicationToolbar::CreateApplicationToolbar(HWND hParent)
 {
 	return CreateToolbar(hParent, WS_CHILD | WS_VISIBLE |
 		WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TBSTYLE_TOOLTIPS | TBSTYLE_LIST |
@@ -55,46 +55,50 @@ HWND CApplicationToolbar::CreateApplicationToolbar(HWND hParent)
 		TBSTYLE_EX_DOUBLEBUFFER | TBSTYLE_EX_HIDECLIPPEDBUTTONS);
 }
 
-void CApplicationToolbar::Initialize(HWND hParent)
+void ApplicationToolbar::Initialize(HWND hParent)
 {
-	m_atps = &CApplicationToolbarPersistentSettings::GetInstance();
+	m_atps = &ApplicationToolbarPersistentSettings::GetInstance();
 
-	SendMessage(m_hwnd,TB_SETBITMAPSIZE,0,MAKELONG(16,16));
 	SendMessage(m_hwnd,TB_BUTTONSTRUCTSIZE,static_cast<WPARAM>(sizeof(TBBUTTON)),0);
 
 	HIMAGELIST himlSmall;
 	Shell_GetImageLists(NULL,&himlSmall);
+
+	int iconWidth;
+	int iconHeight;
+	ImageList_GetIconSize(himlSmall, &iconWidth, &iconHeight);
+	SendMessage(m_hwnd, TB_SETBITMAPSIZE, 0, MAKELONG(iconWidth, iconHeight));
+
 	SendMessage(m_hwnd,TB_SETIMAGELIST,0,reinterpret_cast<LPARAM>(himlSmall));
 
-	m_patd = new CApplicationToolbarDropHandler(m_hwnd, this);
+	m_patd = new ApplicationToolbarDropHandler(m_hwnd, this);
 	RegisterDragDrop(m_hwnd,m_patd);
 
-	SetWindowSubclass(hParent,ParentWndProcStub,PARENT_SUBCLASS_ID,
-		reinterpret_cast<DWORD_PTR>(this));
+	m_windowSubclasses.push_back(WindowSubclassWrapper(hParent, ParentWndProcStub,
+		PARENT_SUBCLASS_ID, reinterpret_cast<DWORD_PTR>(this)));
 
 	AddButtonsToToolbar();
 
-	m_connections.push_back(m_pexpp->AddToolbarContextMenuObserver(boost::bind(&CApplicationToolbar::OnToolbarContextMenuPreShow, this, _1, _2)));
+	m_connections.push_back(m_pexpp->AddToolbarContextMenuObserver(
+		boost::bind(&ApplicationToolbar::OnToolbarContextMenuPreShow, this, _1, _2, _3)));
 }
 
-CApplicationToolbar::~CApplicationToolbar()
+ApplicationToolbar::~ApplicationToolbar()
 {
-	RemoveWindowSubclass(GetParent(m_hwnd), ParentWndProcStub, PARENT_SUBCLASS_ID);
-
 	RevokeDragDrop(m_hwnd);
 	m_patd->Release();
 }
 
-LRESULT CALLBACK ParentWndProcStub(HWND hwnd,UINT uMsg,
+LRESULT CALLBACK ApplicationToolbar::ParentWndProcStub(HWND hwnd,UINT uMsg,
 	WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData)
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	CApplicationToolbar *pat = reinterpret_cast<CApplicationToolbar *>(dwRefData);
+	ApplicationToolbar *pat = reinterpret_cast<ApplicationToolbar *>(dwRefData);
 	return pat->ParentWndProc(hwnd,uMsg,wParam,lParam);
 }
 
-LRESULT CALLBACK CApplicationToolbar::ParentWndProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+LRESULT CALLBACK ApplicationToolbar::ParentWndProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	switch(uMsg)
 	{
@@ -183,7 +187,7 @@ LRESULT CALLBACK CApplicationToolbar::ParentWndProc(HWND hwnd,UINT uMsg,WPARAM w
 	return DefSubclassProc(hwnd,uMsg,wParam,lParam);
 }
 
-void CApplicationToolbar::AddButtonsToToolbar()
+void ApplicationToolbar::AddButtonsToToolbar()
 {
 	for(const auto &Button : m_atps->m_Buttons)
 	{
@@ -191,7 +195,7 @@ void CApplicationToolbar::AddButtonsToToolbar()
 	}
 }
 
-void CApplicationToolbar::AddButtonToToolbar(const ApplicationButton_t &Button)
+void ApplicationToolbar::AddButtonToToolbar(const ApplicationButton_t &Button)
 {
 	ApplicationInfo_t ai = ProcessCommand(Button.Command);
 
@@ -225,7 +229,7 @@ void CApplicationToolbar::AddButtonToToolbar(const ApplicationButton_t &Button)
 	UpdateToolbarBandSizing(GetParent(m_hwnd),m_hwnd);
 }
 
-void CApplicationToolbar::UpdateButton(int iItem)
+void ApplicationToolbar::UpdateButton(int iItem)
 {
 	ApplicationButton_t *Button = MapToolbarButtonToItem(iItem);
 
@@ -261,14 +265,13 @@ void CApplicationToolbar::UpdateButton(int iItem)
 	}
 }
 
-void CApplicationToolbar::ShowNewItemDialog()
+void ApplicationToolbar::ShowNewItemDialog()
 {
 	ApplicationButton_t Button;
 	Button.ShowNameOnToolbar = TRUE;
 
-	CApplicationToolbarButtonDialog ApplicationToolbarButtonDialog(m_hInstance,
-		IDD_EDITAPPLICATIONBUTTON,m_hwnd,&Button,true);
-	INT_PTR ret = ApplicationToolbarButtonDialog.ShowModalDialog();
+	ApplicationToolbarButtonDialog applicationToolbarButtonDialog(m_hInstance, m_hwnd, &Button, true);
+	INT_PTR ret = applicationToolbarButtonDialog.ShowModalDialog();
 
 	if(ret == 1)
 	{
@@ -279,7 +282,7 @@ void CApplicationToolbar::ShowNewItemDialog()
 	}
 }
 
-void CApplicationToolbar::AddNewItem(const std::wstring &name, const std::wstring &command,
+void ApplicationToolbar::AddNewItem(const std::wstring &name, const std::wstring &command,
 	BOOL showNameOnToolbar)
 {
 	ApplicationButton_t button;
@@ -295,7 +298,7 @@ void CApplicationToolbar::AddNewItem(const std::wstring &name, const std::wstrin
 they will be passed to the application along
 with the default parameters (i.e. those attached
 to the button). */
-void CApplicationToolbar::OpenItem(int iItem, std::wstring *parameters)
+void ApplicationToolbar::OpenItem(int iItem, std::wstring *parameters)
 {
 	assert(iItem >= 0 && static_cast<size_t>(iItem) < m_atps->m_Buttons.size());
 
@@ -305,8 +308,8 @@ void CApplicationToolbar::OpenItem(int iItem, std::wstring *parameters)
 	{
 		ApplicationInfo_t ai = ProcessCommand(Button->Command);
 
-		LPITEMIDLIST pidl = NULL;
-		HRESULT hr = GetIdlFromParsingName(ai.Application.c_str(),&pidl);
+		unique_pidl_absolute pidl;
+		HRESULT hr = SHParseDisplayName(ai.Application.c_str(), nullptr, wil::out_param(pidl), 0, nullptr);
 
 		if(SUCCEEDED(hr))
 		{
@@ -318,8 +321,7 @@ void CApplicationToolbar::OpenItem(int iItem, std::wstring *parameters)
 				combinedParameters.append(*parameters);
 			}
 
-			m_pexpp->OpenFileItem(pidl, combinedParameters.c_str());
-			CoTaskMemFree(pidl);
+			m_pexpp->OpenFileItem(pidl.get(), combinedParameters.c_str());
 		}
 	}
 }
@@ -331,7 +333,7 @@ expanded) and a parameter list.
 Two supported styles:
 1. "[command]" [parameters] (used if the command contains spaces)
 2. [command] [parameters] */
-CApplicationToolbar::ApplicationInfo_t CApplicationToolbar::ProcessCommand(const std::wstring &Command)
+ApplicationToolbar::ApplicationInfo_t ApplicationToolbar::ProcessCommand(const std::wstring &Command)
 {
 	ApplicationInfo_t ai;
 
@@ -394,7 +396,7 @@ CApplicationToolbar::ApplicationInfo_t CApplicationToolbar::ProcessCommand(const
 	return ai;
 }
 
-void CApplicationToolbar::ShowItemProperties(int iItem)
+void ApplicationToolbar::ShowItemProperties(int iItem)
 {
 	assert(iItem >= 0 && static_cast<size_t>(iItem) < m_atps->m_Buttons.size());
 
@@ -402,8 +404,8 @@ void CApplicationToolbar::ShowItemProperties(int iItem)
 
 	if(Button != NULL)
 	{
-		CApplicationToolbarButtonDialog ApplicationToolbarButtonDialog(m_hInstance,
-			IDD_EDITAPPLICATIONBUTTON,m_hwnd,Button,false);
+		ApplicationToolbarButtonDialog ApplicationToolbarButtonDialog(m_hInstance,
+			m_hwnd, Button, false);
 		INT_PTR ret = ApplicationToolbarButtonDialog.ShowModalDialog();
 
 		if(ret == 1)
@@ -413,15 +415,13 @@ void CApplicationToolbar::ShowItemProperties(int iItem)
 	}
 }
 
-void CApplicationToolbar::DeleteItem(int iItem)
+void ApplicationToolbar::DeleteItem(int iItem)
 {
 	assert(iItem >= 0 && static_cast<size_t>(iItem) < m_atps->m_Buttons.size());
 
-	TCHAR szInfoMsg[128];
-	LoadString(m_hInstance,IDS_APPLICATIONBUTTON_DELETE,
-		szInfoMsg,SIZEOF_ARRAY(szInfoMsg));
+	std::wstring message = ResourceHelper::LoadString(m_hInstance, IDS_APPLICATIONBUTTON_DELETE);
 
-	int iMessageBoxReturn = MessageBox(m_hwnd,szInfoMsg,
+	int iMessageBoxReturn = MessageBox(m_hwnd,message.c_str(),
 		NExplorerplusplus::APP_NAME,MB_YESNO|MB_ICONINFORMATION|MB_DEFBUTTON2);
 
 	if(iMessageBoxReturn == IDYES)
@@ -445,26 +445,27 @@ void CApplicationToolbar::DeleteItem(int iItem)
 	}
 }
 
-void CApplicationToolbar::OnToolbarContextMenuPreShow(HMENU menu, HWND sourceWindow)
+void ApplicationToolbar::OnToolbarContextMenuPreShow(HMENU menu, HWND sourceWindow, const POINT &pt)
 {
+	UNREFERENCED_PARAMETER(pt);
+
 	if (sourceWindow != m_hwnd)
 	{
 		return;
 	}
 
-	TCHAR szTemp[64];
-	LoadString(m_hInstance, IDS_APPLICATIONBUTTON_NEW, szTemp, SIZEOF_ARRAY(szTemp));
+	std::wstring newText = ResourceHelper::LoadString(m_hInstance, IDS_APPLICATIONBUTTON_NEW);
 
 	MENUITEMINFO mii;
 	mii.cbSize = sizeof(mii);
 	mii.fMask = MIIM_ID | MIIM_STRING;
-	mii.dwTypeData = szTemp;
+	mii.dwTypeData = newText.data();
 	mii.wID = IDM_APP_NEW;
 
 	InsertMenuItem(menu, IDM_TOOLBARS_CUSTOMIZE, FALSE, &mii);
 }
 
-ApplicationButton_t *CApplicationToolbar::MapToolbarButtonToItem(int iIndex)
+ApplicationButton_t *ApplicationToolbar::MapToolbarButtonToItem(int iIndex)
 {
 	if(iIndex == -1)
 	{
@@ -489,24 +490,19 @@ ApplicationButton_t *CApplicationToolbar::MapToolbarButtonToItem(int iIndex)
 	return NULL;
 }
 
-CApplicationToolbarPersistentSettings::CApplicationToolbarPersistentSettings() :
+ApplicationToolbarPersistentSettings::ApplicationToolbarPersistentSettings() :
 m_IDCounter(0)
 {
 
 }
 
-CApplicationToolbarPersistentSettings::~CApplicationToolbarPersistentSettings()
+ApplicationToolbarPersistentSettings& ApplicationToolbarPersistentSettings::GetInstance()
 {
-	
-}
-
-CApplicationToolbarPersistentSettings& CApplicationToolbarPersistentSettings::GetInstance()
-{
-	static CApplicationToolbarPersistentSettings atps;
+	static ApplicationToolbarPersistentSettings atps;
 	return atps;
 }
 
-void CApplicationToolbarPersistentSettings::LoadRegistrySettings(HKEY hParentKey)
+void ApplicationToolbarPersistentSettings::LoadRegistrySettings(HKEY hParentKey)
 {
 	TCHAR	szItemKey[256];
 	int		i = 0;
@@ -542,7 +538,7 @@ void CApplicationToolbarPersistentSettings::LoadRegistrySettings(HKEY hParentKey
 	}
 }
 
-void CApplicationToolbarPersistentSettings::SaveRegistrySettings(HKEY hParentKey)
+void ApplicationToolbarPersistentSettings::SaveRegistrySettings(HKEY hParentKey)
 {
 	int index = 0;
 
@@ -568,7 +564,7 @@ void CApplicationToolbarPersistentSettings::SaveRegistrySettings(HKEY hParentKey
 	}
 }
 
-void CApplicationToolbarPersistentSettings::LoadXMLSettings(IXMLDOMNode *pNode)
+void ApplicationToolbarPersistentSettings::LoadXMLSettings(IXMLDOMNode *pNode)
 {
 	TCHAR szName[512];
 	TCHAR szCommand[512];
@@ -635,7 +631,7 @@ void CApplicationToolbarPersistentSettings::LoadXMLSettings(IXMLDOMNode *pNode)
 	}
 }
 
-void CApplicationToolbarPersistentSettings::SaveXMLSettings(IXMLDOMDocument *pXMLDom,IXMLDOMElement *pe)
+void ApplicationToolbarPersistentSettings::SaveXMLSettings(IXMLDOMDocument *pXMLDom,IXMLDOMElement *pe)
 {
 	BSTR bstr_wsntt = SysAllocString(L"\n\t\t");
 
@@ -654,7 +650,7 @@ void CApplicationToolbarPersistentSettings::SaveXMLSettings(IXMLDOMDocument *pXM
 	SysFreeString(bstr_wsntt);
 }
 
-bool CApplicationToolbarPersistentSettings::AddButton(const std::wstring &name, const std::wstring &command,
+bool ApplicationToolbarPersistentSettings::AddButton(const std::wstring &name, const std::wstring &command,
 	BOOL showNameOnToolbar, ApplicationButton_t *buttonOut)
 {
 	if(name.length() == 0 ||

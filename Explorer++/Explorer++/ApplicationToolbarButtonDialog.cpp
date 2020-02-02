@@ -5,30 +5,23 @@
 #include "stdafx.h"
 #include "ApplicationToolbarButtonDialog.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 
-
-CApplicationToolbarButtonDialog::CApplicationToolbarButtonDialog(HINSTANCE hInstance,
-	int iResource,HWND hParent,ApplicationButton_t *Button,bool IsNew) :
-	CBaseDialog(hInstance, iResource, hParent, false),
+ApplicationToolbarButtonDialog::ApplicationToolbarButtonDialog(HINSTANCE hInstance,
+	HWND hParent, ApplicationButton_t *Button, bool IsNew) :
+	BaseDialog(hInstance, IDD_EDITAPPLICATIONBUTTON, hParent, false),
 	m_Button(Button),
 	m_IsNew(IsNew)
 {
 	
 }
 
-CApplicationToolbarButtonDialog::~CApplicationToolbarButtonDialog()
-{
-
-}
-
-INT_PTR CApplicationToolbarButtonDialog::OnInitDialog()
+INT_PTR ApplicationToolbarButtonDialog::OnInitDialog()
 {
 	if(m_IsNew)
 	{
-		TCHAR szTemp[64];
-		LoadString(GetInstance(),IDS_GENERAL_NEWAPPLICATIONBUTTON,
-			szTemp,SIZEOF_ARRAY(szTemp));
-		SetWindowText(m_hDlg,szTemp);
+		std::wstring newText = ResourceHelper::LoadString(GetInstance(), IDS_GENERAL_NEWAPPLICATIONBUTTON);
+		SetWindowText(m_hDlg, newText.c_str());
 	}
 
 	SetDlgItemText(m_hDlg,IDC_APP_EDIT_NAME,m_Button->Name.c_str());
@@ -50,7 +43,7 @@ INT_PTR CApplicationToolbarButtonDialog::OnInitDialog()
 	return 0;
 }
 
-INT_PTR CApplicationToolbarButtonDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR ApplicationToolbarButtonDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -92,7 +85,7 @@ INT_PTR CApplicationToolbarButtonDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-void CApplicationToolbarButtonDialog::OnChooseFile()
+void ApplicationToolbarButtonDialog::OnChooseFile()
 {
 	/* TODO: Text needs to be localized. */
 	const TCHAR *Filter = _T("Programs (*.exe)\0*.exe\0All Files\0*.*\0\0");
@@ -127,7 +120,7 @@ void CApplicationToolbarButtonDialog::OnChooseFile()
 	}
 }
 
-void CApplicationToolbarButtonDialog::OnOk()
+void ApplicationToolbarButtonDialog::OnOk()
 {
 	TCHAR Name[512];
 	GetDlgItemText(m_hDlg,IDC_APP_EDIT_NAME,Name,SIZEOF_ARRAY(Name));
@@ -156,12 +149,12 @@ void CApplicationToolbarButtonDialog::OnOk()
 	EndDialog(m_hDlg,1);
 }
 
-void CApplicationToolbarButtonDialog::OnCancel()
+void ApplicationToolbarButtonDialog::OnCancel()
 {
 	EndDialog(m_hDlg,0);
 }
 
-INT_PTR CApplicationToolbarButtonDialog::OnClose()
+INT_PTR ApplicationToolbarButtonDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;

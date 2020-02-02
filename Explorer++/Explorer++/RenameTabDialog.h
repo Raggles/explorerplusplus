@@ -6,40 +6,34 @@
 
 #include "CoreInterface.h"
 #include "TabContainer.h"
-#include "TabInterface.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 
-class CRenameTabDialog;
+class RenameTabDialog;
 
-class CRenameTabDialogPersistentSettings : public CDialogSettings
+class RenameTabDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CRenameTabDialogPersistentSettings();
-
-	static CRenameTabDialogPersistentSettings &GetInstance();
+	static RenameTabDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CRenameTabDialog;
+	friend RenameTabDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
-	CRenameTabDialogPersistentSettings();
+	RenameTabDialogPersistentSettings();
 
-	CRenameTabDialogPersistentSettings(const CRenameTabDialogPersistentSettings &);
-	CRenameTabDialogPersistentSettings & operator=(const CRenameTabDialogPersistentSettings &);
+	RenameTabDialogPersistentSettings(const RenameTabDialogPersistentSettings &);
+	RenameTabDialogPersistentSettings & operator=(const RenameTabDialogPersistentSettings &);
 };
 
-class CRenameTabDialog : public CBaseDialog
+class RenameTabDialog : public BaseDialog
 {
 public:
 
-	CRenameTabDialog(HINSTANCE hInstance, int iResource, HWND hParent,
-		int tabId, IExplorerplusplus *pexpp, TabContainer *tabContainer,
-		TabInterface *ti);
-	~CRenameTabDialog();
+	RenameTabDialog(HINSTANCE hInstance, HWND hParent, int tabId, TabContainer *tabContainer);
 
 protected:
 
@@ -58,13 +52,10 @@ private:
 
 	void	OnTabClosed(int tabId);
 
-	CRenameTabDialogPersistentSettings	*m_prtdps;
+	RenameTabDialogPersistentSettings	*m_prtdps;
 
-	IExplorerplusplus	*m_pexpp;
 	TabContainer	*m_tabContainer;
-	TabInterface	*m_ti;
 	int		m_tabId;
-	TCHAR	m_szTabName[256];
 
 	std::vector<boost::signals2::scoped_connection>	m_connections;
 };

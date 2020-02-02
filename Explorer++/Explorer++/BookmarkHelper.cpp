@@ -3,56 +3,39 @@
 // See LICENSE in the top level directory
 
 #include "stdafx.h"
-#include <stack>
-#include <algorithm>
-#include "Explorer++_internal.h"
-#include "MainImages.h"
 #include "BookmarkHelper.h"
+#include "AddBookmarkDialog.h"
 #include "MainResource.h"
 #include "../Helper/Macros.h"
+#include <boost/range/adaptor/filtered.hpp>
+#include <algorithm>
 
+int CALLBACK SortByDefault(const BookmarkItem *firstItem, const BookmarkItem *secondItem);
+int CALLBACK SortByName(const BookmarkItem *firstItem, const BookmarkItem *secondItem);
+int CALLBACK SortByLocation(const BookmarkItem *firstItem, const BookmarkItem *secondItem);
+int CALLBACK SortByDateAdded(const BookmarkItem *firstItem, const BookmarkItem *secondItem);
+int CALLBACK SortByDateModified(const BookmarkItem *firstItem, const BookmarkItem *secondItem);
 
-int CALLBACK SortByName(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
-int CALLBACK SortByLocation(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
-int CALLBACK SortByVisitDate(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
-int CALLBACK SortByVisitCount(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
-int CALLBACK SortByAdded(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
-int CALLBACK SortByLastModified(const VariantBookmark &BookmarkItem1,const VariantBookmark &BookmarkItem2);
+BookmarkItem *GetBookmarkItemByIdResursive(BookmarkItem *bookmarkItem, std::wstring_view guid);
 
-VariantBookmark &NBookmarkHelper::GetBookmarkItem(CBookmarkFolder &ParentBookmarkFolder,
-	const GUID &guid)
+bool BookmarkHelper::IsFolder(const std::unique_ptr<BookmarkItem> &bookmarkItem)
 {
-	auto itr = std::find_if(ParentBookmarkFolder.begin(),ParentBookmarkFolder.end(),
-		[guid](VariantBookmark &variantBookmark) -> BOOL
-		{
-			if(variantBookmark.type() == typeid(CBookmarkFolder))
-			{
-				CBookmarkFolder BookmarkFolder = boost::get<CBookmarkFolder>(variantBookmark);
-				return IsEqualGUID(BookmarkFolder.GetGUID(),guid);
-			}
-			else
-			{
-				CBookmark Bookmark = boost::get<CBookmark>(variantBookmark);
-				return IsEqualGUID(Bookmark.GetGUID(),guid);
-			}
-		}
-	);
-
-	assert(itr != ParentBookmarkFolder.end());
-
-	return *itr;
+	return bookmarkItem->IsFolder();
 }
 
-int CALLBACK NBookmarkHelper::Sort(SortMode_t SortMode,const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+bool BookmarkHelper::IsBookmark(const std::unique_ptr<BookmarkItem> &bookmarkItem)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmark))
+	return bookmarkItem->IsBookmark();
+}
+
+int CALLBACK BookmarkHelper::Sort(SortMode sortMode, const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
+{
+	if(firstItem->IsFolder() && secondItem->IsBookmark())
 	{
 		return -1;
 	}
-	else if(BookmarkItem1.type() == typeid(CBookmark) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
+	else if(firstItem->IsBookmark() && secondItem->IsFolder())
 	{
 		return 1;
 	}
@@ -60,30 +43,26 @@ int CALLBACK NBookmarkHelper::Sort(SortMode_t SortMode,const VariantBookmark &Bo
 	{
 		int iRes = 0;
 
-		switch(SortMode)
+		switch(sortMode)
 		{
-		case SM_NAME:
-			iRes = SortByName(BookmarkItem1,BookmarkItem2);
+		case SortMode::Default:
+			iRes = SortByDefault(firstItem, secondItem);
 			break;
 
-		case SM_LOCATION:
-			iRes = SortByLocation(BookmarkItem1,BookmarkItem2);
+		case SortMode::Name:
+			iRes = SortByName(firstItem,secondItem);
 			break;
 
-		case SM_VISIT_DATE:
-			iRes = SortByVisitDate(BookmarkItem1,BookmarkItem2);
+		case SortMode::Location:
+			iRes = SortByLocation(firstItem,secondItem);
 			break;
 
-		case SM_VISIT_COUNT:
-			iRes = SortByVisitCount(BookmarkItem1,BookmarkItem2);
+		case SortMode::DateCreated:
+			iRes = SortByDateAdded(firstItem,secondItem);
 			break;
 
-		case SM_ADDED:
-			iRes = SortByAdded(BookmarkItem1,BookmarkItem2);
-			break;
-
-		case SM_LAST_MODIFIED:
-			iRes = SortByLastModified(BookmarkItem1,BookmarkItem2);
+		case SortMode::DateModified:
+			iRes = SortByDateModified(firstItem,secondItem);
 			break;
 
 		default:
@@ -95,128 +74,207 @@ int CALLBACK NBookmarkHelper::Sort(SortMode_t SortMode,const VariantBookmark &Bo
 	}
 }
 
-int CALLBACK SortByName(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+int CALLBACK SortByDefault(const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
-	{
-		const CBookmarkFolder &BookmarkFolder1 = boost::get<CBookmarkFolder>(BookmarkItem1);
-		const CBookmarkFolder &BookmarkFolder2 = boost::get<CBookmarkFolder>(BookmarkItem2);
+	size_t firstIndex = firstItem->GetParent()->GetChildIndex(firstItem);
+	size_t secondIndex = secondItem->GetParent()->GetChildIndex(secondItem);
+	return static_cast<int>(firstIndex) - static_cast<int>(secondIndex);
+}
 
-		return BookmarkFolder1.GetName().compare(BookmarkFolder2.GetName());
+int CALLBACK SortByName(const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
+{
+	return StrCmpLogicalW(firstItem->GetName().c_str(), secondItem->GetName().c_str());
+}
+
+int CALLBACK SortByLocation(const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
+{
+	if(firstItem->IsFolder() && secondItem->IsFolder())
+	{
+		return SortByName(firstItem, secondItem);
 	}
 	else
 	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
-
-		return Bookmark1.GetName().compare(Bookmark2.GetName());
+		return firstItem->GetLocation().compare(secondItem->GetLocation());
 	}
 }
 
-int CALLBACK SortByLocation(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+int CALLBACK SortByDateAdded(const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
-	{
-		return 0;
-	}
-	else
-	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
+	FILETIME firstItemDateCreated = firstItem->GetDateCreated();
+	FILETIME secondItemDateCreated = secondItem->GetDateCreated();
+	return CompareFileTime(&firstItemDateCreated, &secondItemDateCreated);
+}
 
-		return Bookmark1.GetLocation().compare(Bookmark2.GetLocation());
+int CALLBACK SortByDateModified(const BookmarkItem *firstItem,
+	const BookmarkItem *secondItem)
+{
+	FILETIME firstItemDateModified = firstItem->GetDateModified();
+	FILETIME secondItemDateModified = secondItem->GetDateModified();
+	return CompareFileTime(&firstItemDateModified, &secondItemDateModified);
+}
+
+void BookmarkHelper::BookmarkAllTabs(BookmarkTree *bookmarkTree, HMODULE resoureceModule,
+	HWND parentWindow, IExplorerplusplus *coreInterface)
+{
+	std::wstring bookmarkAllTabsText = ResourceHelper::LoadString(resoureceModule, IDS_ADD_BOOKMARK_TITLE_BOOKMARK_ALL_TABS);
+	auto bookmarkFolder = AddBookmarkItem(bookmarkTree, BookmarkItem::Type::Folder,
+		nullptr, resoureceModule, parentWindow, coreInterface->GetTabContainer(), coreInterface,
+		bookmarkAllTabsText);
+
+	if (!bookmarkFolder)
+	{
+		return;
+	}
+
+	size_t index = 0;
+
+	for (auto tabRef : coreInterface->GetTabContainer()->GetAllTabsInOrder())
+	{
+		auto &tab = tabRef.get();
+		auto entry = tab.GetShellBrowser()->GetNavigationController()->GetCurrentEntry();
+		auto bookmark = std::make_unique<BookmarkItem>(std::nullopt, entry->GetDisplayName(),
+			tab.GetShellBrowser()->GetDirectory());
+
+		bookmarkTree->AddBookmarkItem(bookmarkFolder, std::move(bookmark), index);
+
+		index++;
 	}
 }
 
-int CALLBACK SortByVisitDate(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+BookmarkItem *BookmarkHelper::AddBookmarkItem(BookmarkTree *bookmarkTree, BookmarkItem::Type type,
+	BookmarkItem *defaultParentSelection, HMODULE resoureceModule, HWND parentWindow,
+	TabContainer *tabContainer, IExplorerplusplus *coreInterface, std::optional<std::wstring> customDialogTitle)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
+	std::unique_ptr<BookmarkItem> bookmarkItem;
+
+	if (type == BookmarkItem::Type::Bookmark)
 	{
-		return 0;
+		const Tab &selectedTab = tabContainer->GetSelectedTab();
+		auto entry = selectedTab.GetShellBrowser()->GetNavigationController()->GetCurrentEntry();
+
+		bookmarkItem = std::make_unique<BookmarkItem>(std::nullopt, entry->GetDisplayName(),
+			selectedTab.GetShellBrowser()->GetDirectory());
 	}
 	else
 	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
+		bookmarkItem = std::make_unique<BookmarkItem>(std::nullopt,
+			ResourceHelper::LoadString(resoureceModule, IDS_BOOKMARKS_NEWBOOKMARKFOLDER), std::nullopt);
+	}
 
-		FILETIME ft1 = Bookmark1.GetDateLastVisited();
-		FILETIME ft2 = Bookmark2.GetDateLastVisited();
+	BookmarkItem *rawBookmarkItem = bookmarkItem.get();
+	BookmarkItem *selectedParentFolder = nullptr;
 
-		return CompareFileTime(&ft1,&ft2);
+	AddBookmarkDialog addBookmarkDialog(resoureceModule, parentWindow, coreInterface, bookmarkTree,
+		bookmarkItem.get(), defaultParentSelection, &selectedParentFolder, customDialogTitle);
+	auto res = addBookmarkDialog.ShowModalDialog();
+
+	if (res == BaseDialog::RETURN_OK)
+	{
+		assert(selectedParentFolder != nullptr);
+		bookmarkTree->AddBookmarkItem(selectedParentFolder, std::move(bookmarkItem),
+			selectedParentFolder->GetChildren().size());
+
+		return rawBookmarkItem;
+	}
+
+	return nullptr;
+}
+
+void BookmarkHelper::EditBookmarkItem(BookmarkItem *bookmarkItem, BookmarkTree *bookmarkTree,
+	HMODULE resoureceModule, HWND parentWindow, IExplorerplusplus *coreInterface)
+{
+	BookmarkItem *selectedParentFolder = nullptr;
+	AddBookmarkDialog AddBookmarkDialog(resoureceModule, parentWindow, coreInterface,
+		bookmarkTree, bookmarkItem, nullptr, &selectedParentFolder);
+	auto res = AddBookmarkDialog.ShowModalDialog();
+
+	if (res == BaseDialog::RETURN_OK)
+	{
+		assert(selectedParentFolder != nullptr);
+
+		size_t newIndex;
+
+		// The bookmark properties will have already been updated, so the only
+		// thing that needs to be done is to move the bookmark to the correct
+		// folder.
+		if (selectedParentFolder == bookmarkItem->GetParent())
+		{
+			newIndex = bookmarkItem->GetParent()->GetChildIndex(bookmarkItem);
+		}
+		else
+		{
+			newIndex = selectedParentFolder->GetChildren().size();
+		}
+
+		bookmarkTree->MoveBookmarkItem(bookmarkItem, selectedParentFolder, newIndex);
 	}
 }
 
-int CALLBACK SortByVisitCount(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+// If the specified item is a bookmark, it will be opened in a new tab.
+// If it's a bookmark folder, each of its children will be opened in new
+// tabs.
+void BookmarkHelper::OpenBookmarkItemInNewTab(const BookmarkItem *bookmarkItem, IExplorerplusplus *expp)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
+	if (bookmarkItem->IsFolder())
 	{
-		return 0;
+		for (auto &childItem : bookmarkItem->GetChildren() | boost::adaptors::filtered(IsBookmark))
+		{
+			expp->GetTabContainer()->CreateNewTab(childItem->GetLocation().c_str());
+		}
 	}
 	else
 	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
-
-		return Bookmark1.GetVisitCount() - Bookmark2.GetVisitCount();
+		expp->GetTabContainer()->CreateNewTab(bookmarkItem->GetLocation().c_str());
 	}
 }
 
-int CALLBACK SortByAdded(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+BookmarkItem *BookmarkHelper::GetBookmarkItemById(BookmarkTree *bookmarkTree, std::wstring_view guid)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
-	{
-		const CBookmarkFolder &BookmarkFolder1 = boost::get<CBookmarkFolder>(BookmarkItem1);
-		const CBookmarkFolder &BookmarkFolder2 = boost::get<CBookmarkFolder>(BookmarkItem2);
-
-		FILETIME ft1 = BookmarkFolder1.GetDateCreated();
-		FILETIME ft2 = BookmarkFolder2.GetDateCreated();
-
-		return CompareFileTime(&ft1,&ft2);
-	}
-	else
-	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
-
-		FILETIME ft1 = Bookmark1.GetDateCreated();
-		FILETIME ft2 = Bookmark2.GetDateCreated();
-
-		return CompareFileTime(&ft1,&ft2);
-	}
+	return GetBookmarkItemByIdResursive(bookmarkTree->GetRoot(), guid);
 }
 
-int CALLBACK SortByLastModified(const VariantBookmark &BookmarkItem1,
-	const VariantBookmark &BookmarkItem2)
+BookmarkItem *GetBookmarkItemByIdResursive(BookmarkItem *bookmarkItem, std::wstring_view guid)
 {
-	if(BookmarkItem1.type() == typeid(CBookmarkFolder) &&
-		BookmarkItem2.type() == typeid(CBookmarkFolder))
+	if (bookmarkItem->GetGUID() == guid)
 	{
-		const CBookmarkFolder &BookmarkFolder1 = boost::get<CBookmarkFolder>(BookmarkItem1);
-		const CBookmarkFolder &BookmarkFolder2 = boost::get<CBookmarkFolder>(BookmarkItem2);
-
-		FILETIME ft1 = BookmarkFolder1.GetDateModified();
-		FILETIME ft2 = BookmarkFolder2.GetDateModified();
-
-		return CompareFileTime(&ft1,&ft2);
+		return bookmarkItem;
 	}
-	else
+
+	if (!bookmarkItem->IsFolder())
 	{
-		const CBookmark &Bookmark1 = boost::get<CBookmark>(BookmarkItem1);
-		const CBookmark &Bookmark2 = boost::get<CBookmark>(BookmarkItem2);
-
-		FILETIME ft1 = Bookmark1.GetDateModified();
-		FILETIME ft2 = Bookmark2.GetDateModified();
-
-		return CompareFileTime(&ft1,&ft2);
+		return nullptr;
 	}
+
+	for (auto &child : bookmarkItem->GetChildren())
+	{
+		BookmarkItem *result = GetBookmarkItemByIdResursive(child.get(), guid);
+
+		if (result)
+		{
+			return result;
+		}
+	}
+
+	return nullptr;
+}
+
+bool BookmarkHelper::IsAncestor(BookmarkItem *bookmarkItem, BookmarkItem *possibleAncestor)
+{
+	if (bookmarkItem == possibleAncestor)
+	{
+		return true;
+	}
+
+	BookmarkItem *parent = bookmarkItem->GetParent();
+
+	if (!parent)
+	{
+		return false;
+	}
+
+	return IsAncestor(parent, possibleAncestor);
 }

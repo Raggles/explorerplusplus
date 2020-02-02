@@ -4,13 +4,16 @@
 
 #pragma once
 
-#include "../Helper/iDirectoryMonitor.h"
 #include "../Helper/DropHandler.h"
+#include "../Helper/iDirectoryMonitor.h"
+#include "../Helper/ShellHelper.h"
+#include "../Helper/WindowSubclassWrapper.h"
+#include "../ThirdParty/CTPL/cpl_stl.h"
+#include <optional>
 
-#define WM_USER_TREEVIEW				WM_APP + 70
-#define WM_USER_TREEVIEW_GAINEDFOCUS	(WM_USER_TREEVIEW + 2)
+class CachedIcons;
 
-class CMyTreeView : public IDropTarget, public IDropSource
+class MyTreeView : public IDropTarget, public IDropSource
 {
 public:
 
@@ -19,22 +22,17 @@ public:
 	ULONG __stdcall		AddRef(void);
 	ULONG __stdcall		Release(void);
 
-	CMyTreeView(HWND hTreeView,HWND hParent,IDirectoryMonitor *pDirMon,HANDLE hIconsThread);
-	~CMyTreeView();
+	MyTreeView(HWND hTreeView, HWND hParent, IDirectoryMonitor *pDirMon, CachedIcons *cachedIcons);
+	~MyTreeView();
 
 	/* Drop source functions. */
 	HRESULT _stdcall	QueryContinueDrag(BOOL fEscapePressed,DWORD gfrKeyState);
 	HRESULT _stdcall	GiveFeedback(DWORD dwEffect);
 
-	LRESULT CALLBACK	TreeViewProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 	/* User functions. */
-	HRESULT				AddDirectory(HTREEITEM hParent,LPITEMIDLIST pidlDirectory);
-	LPITEMIDLIST		BuildPath(HTREEITEM hTreeItem);
-	HTREEITEM			LocateItem(LPITEMIDLIST pidlDirectory);
-	void				EraseItems(HTREEITEM hParent);
+	unique_pidl_absolute	GetItemPidl(HTREEITEM hTreeItem);
+	HTREEITEM			LocateItem(PCIDLIST_ABSOLUTE pidlDirectory);
 	BOOL				QueryDragging(void);
-	DWORD WINAPI		Thread_SubFolders(LPVOID pParam);
 	void				SetShowHidden(BOOL bShowHidden);
 	void				RefreshAllIcons(void);
 
@@ -51,25 +49,93 @@ public:
 
 private:
 
-	/* Message handlers. */
-	LRESULT CALLBACK	OnNotify(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	static const UINT_PTR SUBCLASS_ID = 0;
+	static const UINT_PTR PARENT_SUBCLASS_ID = 0;
 
-	void		AddDirectoryInternal(IShellFolder *pShellFolder, LPITEMIDLIST pidlDirectory, HTREEITEM hParent);
+	static const UINT WM_APP_ICON_RESULT_READY = WM_APP + 1;
+	static const UINT WM_APP_SUBFOLDERS_RESULT_READY = WM_APP + 2;
+
+	typedef struct
+	{
+		unique_pidl_absolute pidl;
+		unique_pidl_child pridl;
+	} ItemInfo_t;
+
+	typedef struct
+	{
+		int internalIndex;
+		std::wstring name;
+	} EnumeratedItem;
+
+	typedef struct
+	{
+		TCHAR szFileName[MAX_PATH];
+		DWORD dwAction;
+	} AlteredFile_t;
+
+	struct BasicItemInfo
+	{
+		BasicItemInfo() = default;
+
+		BasicItemInfo(const BasicItemInfo &other)
+		{
+			pidl.reset(ILCloneFull(other.pidl.get()));
+		}
+
+		unique_pidl_absolute pidl;
+	};
+
+	struct IconResult
+	{
+		HTREEITEM item;
+		int internalIndex;
+		int iconIndex;
+	};
+
+	struct SubfoldersResult
+	{
+		HTREEITEM item;
+		bool hasSubfolder;
+	};
+
+	typedef struct
+	{
+		TCHAR szPath[MAX_PATH];
+		MyTreeView *pMyTreeView;
+	} DirectoryAltered_t;
+
+	typedef struct
+	{
+		TCHAR	szDrive[MAX_PATH];
+		HANDLE	hDrive;
+		int		iMonitorId;
+	} DriveEvent_t;
+
+	static LRESULT CALLBACK TreeViewProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	LRESULT CALLBACK TreeViewProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+	static LRESULT CALLBACK ParentWndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	LRESULT CALLBACK ParentWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+	HRESULT		ExpandDirectory(HTREEITEM hParent);
+	void		AddDirectoryInternal(IShellFolder *pShellFolder, PCIDLIST_ABSOLUTE pidlDirectory, HTREEITEM hParent);
 	void		DirectoryModified(DWORD dwAction, const TCHAR *szFullFileName);
 	void		DirectoryAltered(void);
-	HTREEITEM	AddRoot(void);
+	HTREEITEM	AddRoot();
 	void		AddItem(const TCHAR *szFullFileName);
 	void		AddItemInternal(HTREEITEM hParent, const TCHAR *szFullFileName);
 	void		AddDrive(const TCHAR *szDrive);
 	void		RenameItem(HTREEITEM hItem, const TCHAR *szFullFileName);
 	void		RemoveItem(const TCHAR *szFullFileName);
 	void		RemoveItem(HTREEITEM hItem);
+	void		EraseItems(HTREEITEM hParent);
 	void		UpdateParent(const TCHAR *szParent);
 	void		UpdateParent(HTREEITEM hParent);
 	LRESULT CALLBACK	OnDeviceChange(WPARAM wParam,LPARAM lParam);
 	void		OnGetDisplayInfo(NMTVDISPINFO *pnmtvdi);
-	void		UpdateChildren(HTREEITEM hParent,LPITEMIDLIST pidlParent);
-	LPITEMIDLIST	UpdateItemInfo(LPITEMIDLIST pidlParent,int iItemId);
+	void		OnItemExpanding(const NMTREEVIEW *nmtv);
+	void		UpdateChildren(HTREEITEM hParent, PCIDLIST_ABSOLUTE pidlParent);
+	PCIDLIST_ABSOLUTE UpdateItemInfo(PCIDLIST_ABSOLUTE pidlParent, int iItemId);
 	HTREEITEM	LocateDeletedItem(const TCHAR *szFullFileName);
 	HTREEITEM	LocateItemByPath(const TCHAR *szItemPath, BOOL bExpand);
 	HTREEITEM	LocateItemOnDesktopTree(const TCHAR *szFullFileName);
@@ -82,25 +148,32 @@ private:
 	void		DirectoryAlteredRenameFile(const TCHAR *szFullFileName);
 
 	/* Icons. */
-	void		AddToIconFinderQueue(TVITEM *plvItem);
-	void		EmptyIconFinderQueue(void);
+	void		QueueIconTask(HTREEITEM item, int internalIndex);
+	static std::optional<IconResult>	FindIconAsync(HWND treeView, int iconResultId, HTREEITEM item,
+		int internalIndex, PCIDLIST_ABSOLUTE pidl);
+	void		ProcessIconResult(int iconResultId);
+	std::optional<int>	GetCachedIconIndex(const ItemInfo_t &itemInfo);
+
+	void		QueueSubfoldersTask(HTREEITEM item);
+	static std::optional<SubfoldersResult> CheckSubfoldersAsync(HWND treeView, int subfoldersResultId, HTREEITEM item, PCIDLIST_ABSOLUTE pidl);
+	void		ProcessSubfoldersResult(int subfoldersResultId);
 
 	/* Item id's. */
-	int			GenerateUniqueItemId(void);
+	int			GenerateUniqueItemId();
 
 	/* Drag and drop. */
 	HRESULT		InitializeDragDropHelpers(void);
 	void		RestoreState(void);
 	DWORD		GetCurrentDragEffect(DWORD grfKeyState,DWORD dwCurrentEffect,POINTL *ptl);
 	BOOL		CheckItemLocations(IDataObject *pDataObject,HTREEITEM hItem,int iDroppedItem);
-	HRESULT		OnBeginDrag(int iItemId,DragTypes_t DragType);
+	HRESULT		OnBeginDrag(int iItemId,DragType dragType);
 
 	/* Icon refresh. */
 	void		RefreshAllIconsInternal(HTREEITEM hFirstSibling);
 
 	HTREEITEM	LocateExistingItem(const TCHAR *szParsingPath);
-	HTREEITEM	LocateExistingItem(LPITEMIDLIST pidlDirectory);
-	HTREEITEM	LocateItemInternal(LPITEMIDLIST pidlDirectory,BOOL bOnlyLocateExistingItem);
+	HTREEITEM	LocateExistingItem(PCIDLIST_ABSOLUTE pidlDirectory);
+	HTREEITEM	LocateItemInternal(PCIDLIST_ABSOLUTE pidlDirectory, BOOL bOnlyLocateExistingItem);
 	void		MonitorAllDrives(void);
 	void		MonitorDrive(const TCHAR *szDrive);
 	HTREEITEM	DetermineDriveSortedPosition(HTREEITEM hParent, const TCHAR *szItemName);
@@ -108,59 +181,25 @@ private:
 	BOOL		IsDesktop(const TCHAR *szPath);
 	BOOL		IsDesktopSubChild(const TCHAR *szFullFileName);
 
-
-
-
-	/* ------ Internal state. ------ */
-
-	/* Used to store the tree items as you enumerate them ready for sorting. */
-	typedef struct
-	{
-		TCHAR		ItemName[MAX_PATH];
-		int			iItemId;
-	} ItemStore_t;
-
-	typedef struct
-	{
-		TCHAR szFileName[MAX_PATH];
-		DWORD dwAction;
-	} AlteredFile_t;
-
-	typedef struct
-	{
-		LPITEMIDLIST	pidl;
-		LPITEMIDLIST	pridl;
-	} ItemInfo_t;
-
-	typedef struct
-	{
-		TCHAR szPath[MAX_PATH];
-		CMyTreeView *pMyTreeView;
-	} DirectoryAltered_t;
-
-	typedef struct
-	{
-		TCHAR	szDrive[MAX_PATH];
-		HANDLE	hDrive;
-		int		iMonitorId;
-	} DriveEvent_t;
-
 	HWND				m_hTreeView;
-	HWND				m_hParent;
 	int					m_iRefCount;
 	IDirectoryMonitor	*m_pDirMon;
 	BOOL				m_bShowHidden;
+	std::vector<WindowSubclassWrapper>	m_windowSubclasses;
 
-	/* Subfolder thread. */
-	CRITICAL_SECTION	m_csSubFolders;
+	ctpl::thread_pool	m_iconThreadPool;
+	std::unordered_map<int, std::future<std::optional<IconResult>>>	m_iconResults;
+	int					m_iconResultIDCounter;
 
-	/* Icon thread. */
-	HANDLE				m_hThread;
+	ctpl::thread_pool	m_subfoldersThreadPool;
+	std::unordered_map<int, std::future<std::optional<SubfoldersResult>>>	m_subfoldersResults;
+	int					m_subfoldersResultIDCounter;
 
 	/* Item id's and info. */
-	int					*m_uItemMap;
-	ItemInfo_t			*m_pItemInfo;
-	int					m_iCurrentItemAllocation;
+	std::unordered_map<int, ItemInfo_t>	m_itemInfoMap;
+	int					m_itemIDCounter;
+	CachedIcons			*m_cachedIcons;
+
 	int					m_iFolderIcon;
 
 	/* Drag and drop. */
@@ -172,7 +211,7 @@ private:
 	BOOL				m_bDragCancelled;
 	BOOL				m_bDragAllowed;
 	BOOL				m_bDataAccept;
-	DragTypes_t			m_DragType;
+	DragType			m_DragType;
 
 	/* Directory modification. */
 	std::list<AlteredFile_t>	m_AlteredList;
@@ -185,11 +224,3 @@ private:
 	BOOL				m_bQueryRemoveCompleted;
 	TCHAR				m_szQueryRemove[MAX_PATH];
 };
-
-typedef struct
-{
-	HWND			hTreeView;
-	HTREEITEM		hParent;
-	LPITEMIDLIST	pidl;
-	CMyTreeView		*pMyTreeView;
-} ThreadInfo_t;

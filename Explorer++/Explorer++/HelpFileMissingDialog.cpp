@@ -8,25 +8,20 @@
 #include "../Helper/Helper.h"
 #include "../Helper/WindowHelper.h"
 
-CHelpFileMissingDialog::CHelpFileMissingDialog(HINSTANCE hInstance,int iResource,HWND hParent) :
-CBaseDialog(hInstance,iResource,hParent,false)
+HelpFileMissingDialog::HelpFileMissingDialog(HINSTANCE hInstance, HWND hParent) :
+	BaseDialog(hInstance, IDD_HELPFILEMISSING, hParent, false)
 {
 	
 }
 
-CHelpFileMissingDialog::~CHelpFileMissingDialog()
-{
-
-}
-
-INT_PTR CHelpFileMissingDialog::OnInitDialog()
+INT_PTR HelpFileMissingDialog::OnInitDialog()
 {
 	CenterWindow(GetParent(m_hDlg),m_hDlg);
 
 	return TRUE;
 }
 
-INT_PTR CHelpFileMissingDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR HelpFileMissingDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -44,7 +39,7 @@ INT_PTR CHelpFileMissingDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CHelpFileMissingDialog::OnNotify(NMHDR *pnmhdr)
+INT_PTR HelpFileMissingDialog::OnNotify(NMHDR *pnmhdr)
 {
 	switch(pnmhdr->code)
 	{
@@ -65,7 +60,7 @@ INT_PTR CHelpFileMissingDialog::OnNotify(NMHDR *pnmhdr)
 	return 0;
 }
 
-INT_PTR CHelpFileMissingDialog::OnClose()
+INT_PTR HelpFileMissingDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;

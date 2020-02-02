@@ -4,125 +4,135 @@
 
 #pragma once
 
-#include "BookmarkHelper.h"
+#include "BookmarkContextMenu.h"
+#include "BookmarkDropInfo.h"
+#include "BookmarkDropTargetWindow.h"
+#include "BookmarkItem.h"
+#include "BookmarkMenu.h"
+#include "BookmarkTree.h"
 #include "CoreInterface.h"
 #include "Navigation.h"
-#include "../Helper/Bookmark.h"
-#include <boost/optional.hpp>
+#include "ResourceHelper.h"
+#include "../Helper/DpiCompatibility.h"
+#include "../Helper/IconFetcher.h"
+#include "../Helper/WindowSubclassWrapper.h"
+#include <boost/signals2.hpp>
+#include <wil/com.h>
+#include <wil/resource.h>
+#include <optional>
 
-class CBookmarksToolbarDropHandler : public IDropTarget
+class BookmarksToolbar : private BookmarkDropTargetWindow
 {
 public:
 
-	CBookmarksToolbarDropHandler(HWND hToolbar,CBookmarkFolder &AllBookmarks,const GUID &guidBookmarksToolbar);
-	~CBookmarksToolbarDropHandler();
-
-	/* IUnknown methods. */
-	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject);
-	ULONG __stdcall		AddRef(void);
-	ULONG __stdcall		Release(void);
+	BookmarksToolbar(HWND hToolbar, HINSTANCE instance, IExplorerplusplus *pexpp,
+		Navigation *navigation, BookmarkTree *bookmarkTree, UINT uIDStart, UINT uIDEnd);
 
 private:
 
-	CBookmarksToolbarDropHandler & operator = (const CBookmarksToolbarDropHandler &btdh);
+	BookmarksToolbar & operator = (const BookmarksToolbar &bt);
 
-	/* IDropTarget methods. */
-	HRESULT __stdcall	DragEnter(IDataObject *pDataObject,DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
-	HRESULT __stdcall	DragOver(DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
-	HRESULT __stdcall	DragLeave(void);
-	HRESULT __stdcall	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
+	using SystemIconImageListMapping = std::unordered_map<int, int>;
 
-	int					GetToolbarPositionIndex(const POINTL &pt,bool &bAfter);
-	void				RemoveInsertionMark();
+	static inline const UINT_PTR SUBCLASS_ID = 0;
+	static inline const UINT_PTR PARENT_SUBCLASS_ID = 0;
 
-	ULONG				m_ulRefCount;
+	// When an item is dragged over a folder on the bookmarks toolbar, the drop
+	// target should be set to the folder only if the dragged item is over the
+	// main part of the button for the folder. This is to allow the dragged item
+	// to be positioned before or after the folder if the item is currently over
+	// the left or right edge of the button.
+	// This is especially important when there's no horizontal padding between
+	// buttons, as there would be no space before or after the button that would
+	// allow you to correctly set the position.
+	// The constant here represents how far the left/right edges of the button
+	// are indented, as a percentage of the total size of the button, in order
+	// to determine whether an item is over the main portion of the button.
+	static inline const double FOLDER_CENTRAL_RECT_INDENT_PERCENTAGE = 0.2;
 
-	HWND				m_hToolbar;
-	CBookmarkFolder		&m_AllBookmarks;
-	GUID				m_guidBookmarksToolbar;
-
-	IDragSourceHelper	*m_pDragSourceHelper;
-	IDropTargetHelper	*m_pDropTargetHelper;
-	bool				m_bAcceptData;
-};
-
-class CBookmarksToolbar : public NBookmark::IBookmarkItemNotification
-{
-	friend LRESULT CALLBACK BookmarksToolbarProcStub(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
-	friend LRESULT CALLBACK BookmarksToolbarParentProcStub(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
-
-public:
-
-	CBookmarksToolbar(HWND hToolbar, HINSTANCE instance, IExplorerplusplus *pexpp,
-		Navigation *navigation, CBookmarkFolder &AllBookmarks, const GUID &guidBookmarksToolbar,
-		UINT uIDStart, UINT uIDEnd);
-	~CBookmarksToolbar();
-
-	/* IBookmarkItemNotification methods. */
-	void	OnBookmarkAdded(const CBookmarkFolder &ParentBookmarkFolder,const CBookmark &Bookmark,std::size_t Position);
-	void	OnBookmarkFolderAdded(const CBookmarkFolder &ParentBookmarkFolder,const CBookmarkFolder &BookmarkFolder,std::size_t Position);
-	void	OnBookmarkModified(const GUID &guid);
-	void	OnBookmarkFolderModified(const GUID &guid);
-	void	OnBookmarkRemoved(const GUID &guid);
-	void	OnBookmarkFolderRemoved(const GUID &guid);
-
-private:
-
-	CBookmarksToolbar & operator = (const CBookmarksToolbar &bt);
-
-	static const UINT_PTR SUBCLASS_ID = 0;
-	static const UINT_PTR PARENT_SUBCLASS_ID = 0;
-
+	static LRESULT CALLBACK	BookmarksToolbarProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK	BookmarksToolbarProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+
+	static LRESULT CALLBACK	BookmarksToolbarParentProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK	BookmarksToolbarParentProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
 	void	InitializeToolbar();
+	void	SetUpToolbarImageList();
 
 	void	InsertBookmarkItems();
-	void	InsertBookmark(const CBookmark &Bookmark);
-	void	InsertBookmark(const CBookmark &Bookmark,std::size_t Position);
-	void	InsertBookmarkFolder(const CBookmarkFolder &BookmarkFolder);
-	void	InsertBookmarkFolder(const CBookmarkFolder &BookmarkFolder,std::size_t Position);
-	void	InsertBookmarkItem(const std::wstring &strName,const GUID &guid,bool bFolder,std::size_t Position);
+	void	InsertBookmarkItem(BookmarkItem *bookmarkItem, int position);
 
-	void	ModifyBookmarkItem(const GUID &guid,bool bFolder);
+	void	RemoveBookmarkItem(const BookmarkItem *bookmarkItem);
 
-	void	RemoveBookmarkItem(const GUID &guid);
-
-	void	OpenBookmarkItemInNewTab(const VariantBookmark &variantBookmarkItem);
-
+	void	OnLButtonDown(const POINT &pt);
+	void	OnMouseMove(int keys, const POINT &pt);
+	void	StartDrag(DragType dragType, const POINT &pt);
+	void	OnLButtonUp();
+	void	OnMButtonUp(const POINT &pt);
 	bool	OnCommand(WPARAM wParam, LPARAM lParam);
 	bool	OnButtonClick(int command);
 	BOOL	OnRightClick(const NMMOUSE *nmm);
-	void	OnRightClickMenuItemSelected(int menuItemId, const VariantBookmark &variantBookmark);
-	void	ShowBookmarkFolderMenu(const CBookmarkFolder &bookmarkFolder, int command, int index);
-	void	OnBookmarkMenuItemClicked(const CBookmark &bookmark);
-	void	OnNewBookmark();
+	void	ShowBookmarkFolderMenu(BookmarkItem *bookmarkItem, int command, int index);
+	void	OnBookmarkMenuItemClicked(const BookmarkItem *bookmarkItem);
+	void	OnNewBookmarkItem(BookmarkItem::Type type);
+	void	OnPaste();
+	int		FindNextButtonIndex(const POINT &ptClient);
+	void	OnEditBookmarkItem(BookmarkItem *bookmarkItem);
 	bool	OnGetInfoTip(NMTBGETINFOTIP *infoTip);
 
-	void	OnToolbarContextMenuPreShow(HMENU menu, HWND sourceWindow);
+	void	OnToolbarContextMenuPreShow(HMENU menu, HWND sourceWindow, const POINT &pt);
 
-	int		GetBookmarkItemIndex(const GUID &guid);
+	std::optional<int>	GetBookmarkItemIndex(const BookmarkItem *bookmarkItem) const;
+	std::optional<int>	GetBookmarkItemIndexUsingGuid(std::wstring_view guid) const;
 
-	VariantBookmark	*GetBookmarkItemFromToolbarIndex(int index);
+	BookmarkItem	*GetBookmarkItemFromToolbarIndex(int index);
 
-	HWND							m_hToolbar;
-	HIMAGELIST						m_himl;
+	void	OnBookmarkItemAdded(BookmarkItem &bookmarkItem, size_t index);
+	void	OnBookmarkItemUpdated(BookmarkItem &bookmarkItem, BookmarkItem::PropertyType propertyType);
+	void	OnBookmarkItemMoved(BookmarkItem *bookmarkItem, const BookmarkItem *oldParent, size_t oldIndex,
+		const BookmarkItem *newParent, size_t newIndex);
+	void	OnBookmarkItemPreRemoval(BookmarkItem &bookmarkItem);
 
-	HINSTANCE						m_instance;
+	DropLocation GetDropLocation(const POINT &pt) override;
+	void UpdateUiForDropLocation(const DropLocation &dropLocation) override;
+	void ResetDropUiState() override;
+	void SetButtonPressedState(int index, bool pressed);
+	void RemoveInsertionMark();
+	void RemoveDropHighlight();
 
-	IExplorerplusplus				*m_pexpp;
-	Navigation						*m_navigation;
+	int GetIconForBookmark(const BookmarkItem *bookmark);
+	void ProcessIconResult(std::wstring_view guid, int iconIndex);
+	int AddSystemIconToImageList(int iconIndex);
 
-	CBookmarkFolder					&m_AllBookmarks;
-	GUID							m_guidBookmarksToolbar;
+	HWND m_hToolbar;
+	DpiCompatibility m_dpiCompat;
+	wil::unique_himagelist m_imageList;
+	SystemIconImageListMapping m_imageListMappings;
+	wil::com_ptr<IImageList> m_systemImageList;
+	int m_defaultFolderIconSystemImageListIndex;
+	int m_defaultFolderIconIndex;
+	int m_bookmarkFolderIconIndex;
+	IconFetcher m_iconFetcher;
 
-	std::unordered_map<UINT,GUID>	m_mapID;
-	UINT							m_uIDStart;
-	UINT							m_uIDEnd;
-	UINT							m_uIDCounter;
+	HINSTANCE m_instance;
 
-	CBookmarksToolbarDropHandler	*m_pbtdh;
+	IExplorerplusplus *m_pexpp;
+	Navigation *m_navigation;
 
-	std::vector<boost::signals2::scoped_connection>	m_connections;
+	BookmarkTree *m_bookmarkTree;
+	BookmarkContextMenu m_bookmarkContextMenu;
+	BookmarkMenu m_bookmarkMenu;
+
+	UINT m_uIDStart;
+	UINT m_uIDEnd;
+	UINT m_uIDCounter;
+
+	std::optional<POINT> m_contextMenuLocation;
+
+	// Drag and drop.
+	std::optional<POINT> m_leftButtonDownPoint;
+	std::optional<int> m_previousDropButton;
+
+	std::vector<WindowSubclassWrapper> m_windowSubclasses;
+	std::vector<boost::signals2::scoped_connection> m_connections;
 };

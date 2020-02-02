@@ -16,8 +16,9 @@
 #include "stdafx.h"
 #include "MassRenameDialog.h"
 #include "Explorer++_internal.h"
-#include "MainImages.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/RegistrySettings.h"
 #include "../Helper/XMLSettings.h"
@@ -26,43 +27,28 @@
 #include <list>
 #include <regex>
 
+const TCHAR MassRenameDialogPersistentSettings::SETTINGS_KEY[] = _T("MassRename");
 
-const TCHAR CMassRenameDialogPersistentSettings::SETTINGS_KEY[] = _T("MassRename");
+const TCHAR MassRenameDialogPersistentSettings::SETTING_COLUMN_WIDTH_1[] = _T("ColumnWidth1");
+const TCHAR MassRenameDialogPersistentSettings::SETTING_COLUMN_WIDTH_2[] = _T("ColumnWidth2");
 
-const TCHAR CMassRenameDialogPersistentSettings::SETTING_COLUMN_WIDTH_1[] = _T("ColumnWidth1");
-const TCHAR CMassRenameDialogPersistentSettings::SETTING_COLUMN_WIDTH_2[] = _T("ColumnWidth2");
-
-CMassRenameDialog::CMassRenameDialog(HINSTANCE hInstance,
-	int iResource,HWND hParent,std::list<std::wstring> FullFilenameList,
-	CFileActionHandler *pFileActionHandler) :
-CBaseDialog(hInstance,iResource,hParent,true)
+MassRenameDialog::MassRenameDialog(HINSTANCE hInstance, HWND hParent,
+	IExplorerplusplus *expp, std::list<std::wstring> FullFilenameList,
+	FileActionHandler *pFileActionHandler) :
+	BaseDialog(hInstance, IDD_MASSRENAME, hParent, true),
+	m_expp(expp),
+	m_FullFilenameList(FullFilenameList),
+	m_pFileActionHandler(pFileActionHandler)
 {
-	m_FullFilenameList = FullFilenameList;
-	m_pFileActionHandler = pFileActionHandler;
-
-	m_pmrdps = &CMassRenameDialogPersistentSettings::GetInstance();
+	m_persistentSettings = &MassRenameDialogPersistentSettings::GetInstance();
 }
 
-CMassRenameDialog::~CMassRenameDialog()
+INT_PTR MassRenameDialog::OnInitDialog()
 {
-
-}
-
-INT_PTR CMassRenameDialog::OnInitDialog()
-{
-	HIMAGELIST himl = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,48);
-	HBITMAP hBitmap = LoadBitmap(GetModuleHandle(0),MAKEINTRESOURCE(IDB_SHELLIMAGES));
-	ImageList_Add(himl,hBitmap,NULL);
-
-	m_hDialogIcon = ImageList_GetIcon(himl,SHELLIMAGES_RENAME,ILD_NORMAL);
-	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_hDialogIcon));
-
-	m_hMoreIcon = ImageList_GetIcon(himl,SHELLIMAGES_RIGHTARROW,ILD_NORMAL);
+	UINT dpi = m_dpiCompat.GetDpiForWindow(m_hDlg);
+	m_moreIcon = m_expp->GetIconResourceLoader()->LoadIconFromPNGForDpi(Icon::ArrowRight, 16, 16, dpi);
 	SendDlgItemMessage(m_hDlg,IDC_MASSRENAME_MORE,BM_SETIMAGE,IMAGE_ICON,
-		reinterpret_cast<LPARAM>(m_hMoreIcon));
-
-	DeleteObject(hBitmap);
-	ImageList_Destroy(himl);
+		reinterpret_cast<LPARAM>(m_moreIcon.get()));
 
 	HWND hListView = GetDlgItem(m_hDlg,IDC_MASSRENAME_FILELISTVIEW);
 
@@ -76,22 +62,19 @@ INT_PTR CMassRenameDialog::OnInitDialog()
 	ListView_SetImageList(hListView,himlSmall,LVSIL_SMALL);
 
 	LVCOLUMN lvCol;
-	TCHAR szTemp[64];
 
-	LoadString(GetInstance(),IDS_MASS_RENAME_CURRENT_NAME,
-		szTemp,SIZEOF_ARRAY(szTemp));
+	std::wstring currentNameText = ResourceHelper::LoadString(GetInstance(),IDS_MASS_RENAME_CURRENT_NAME);
 	lvCol.mask		= LVCF_TEXT;
-	lvCol.pszText	= szTemp;
+	lvCol.pszText	= currentNameText.data();
 	ListView_InsertColumn(hListView,1,&lvCol);
 
-	LoadString(GetInstance(),IDS_MASS_RENAME_PREVIEW_NAME,
-		szTemp,SIZEOF_ARRAY(szTemp));
+	std::wstring previewNameText = ResourceHelper::LoadString(GetInstance(),IDS_MASS_RENAME_PREVIEW_NAME);
 	lvCol.mask		= LVCF_TEXT;
-	lvCol.pszText	= szTemp;
+	lvCol.pszText	= previewNameText.data();
 	ListView_InsertColumn(hListView,2,&lvCol);
 
-	SendMessage(hListView,LVM_SETCOLUMNWIDTH,0,m_pmrdps->m_iColumnWidth1);
-	SendMessage(hListView,LVM_SETCOLUMNWIDTH,1,m_pmrdps->m_iColumnWidth2);
+	SendMessage(hListView,LVM_SETCOLUMNWIDTH,0,m_persistentSettings->m_iColumnWidth1);
+	SendMessage(hListView,LVM_SETCOLUMNWIDTH,1,m_persistentSettings->m_iColumnWidth2);
 
 	LVITEM lvItem;
 	SHFILEINFO shfi;
@@ -129,50 +112,55 @@ INT_PTR CMassRenameDialog::OnInitDialog()
 		EM_SETSEL,0,-1);
 	SetFocus(GetDlgItem(m_hDlg,IDC_MASSRENAME_EDIT));
 
-	m_pmrdps->RestoreDialogPosition(m_hDlg,true);
+	m_persistentSettings->RestoreDialogPosition(m_hDlg,true);
 
 	return 0;
 }
 
-void CMassRenameDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+wil::unique_hicon MassRenameDialog::GetDialogIcon(int iconWidth, int iconHeight) const
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+	return m_expp->GetIconResourceLoader()->LoadIconFromPNGAndScale(Icon::MassRename, iconWidth, iconHeight);
+}
 
-	CResizableDialog::Control_t Control;
+void MassRenameDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
+{
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_MASSRENAME_EDIT;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_MASSRENAME_MORE;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_MASSRENAME_FILELISTVIEW;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDOK;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDCANCEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 
-INT_PTR CMassRenameDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR MassRenameDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -279,21 +267,13 @@ INT_PTR CMassRenameDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CMassRenameDialog::OnClose()
+INT_PTR MassRenameDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;
 }
 
-INT_PTR CMassRenameDialog::OnDestroy()
-{
-	DestroyIcon(m_hMoreIcon);
-	DestroyIcon(m_hDialogIcon);
-
-	return 0;
-}
-
-void CMassRenameDialog::OnOk()
+void MassRenameDialog::OnOk()
 {
 	TCHAR szNamePattern[MAX_PATH];
 
@@ -306,7 +286,7 @@ void CMassRenameDialog::OnOk()
 		return;
 	}
 
-	std::list<CFileActionHandler::RenamedItem_t> RenamedItemList;
+	std::list<FileActionHandler::RenamedItem_t> RenamedItemList;
 	int iItem = 0;
 
 	for(const auto &strOldFilename : m_FullFilenameList)
@@ -324,7 +304,7 @@ void CMassRenameDialog::OnOk()
 		PathRemoveFileSpec(szFilename);
 		strNewFilename = szFilename + std::wstring(_T("\\")) + strNewFilename;
 
-		CFileActionHandler::RenamedItem_t RenamedItem;
+		FileActionHandler::RenamedItem_t RenamedItem;
 		RenamedItem.strOldFilename = strOldFilename;
 		RenamedItem.strNewFilename = strNewFilename;
 		RenamedItemList.push_back(RenamedItem);
@@ -337,23 +317,23 @@ void CMassRenameDialog::OnOk()
 	EndDialog(m_hDlg,1);
 }
 
-void CMassRenameDialog::OnCancel()
+void MassRenameDialog::OnCancel()
 {
 	EndDialog(m_hDlg,0);
 }
 
-void CMassRenameDialog::SaveState()
+void MassRenameDialog::SaveState()
 {
-	m_pmrdps->SaveDialogPosition(m_hDlg);
+	m_persistentSettings->SaveDialogPosition(m_hDlg);
 
 	HWND hListView = GetDlgItem(m_hDlg,IDC_MASSRENAME_FILELISTVIEW);
-	m_pmrdps->m_iColumnWidth1 = ListView_GetColumnWidth(hListView,0);
-	m_pmrdps->m_iColumnWidth2 = ListView_GetColumnWidth(hListView,1);
+	m_persistentSettings->m_iColumnWidth1 = ListView_GetColumnWidth(hListView,0);
+	m_persistentSettings->m_iColumnWidth2 = ListView_GetColumnWidth(hListView,1);
 
-	m_pmrdps->m_bStateSaved = TRUE;
+	m_persistentSettings->m_bStateSaved = TRUE;
 }
 
-void CMassRenameDialog::ProcessFileName(const std::wstring &strTarget,
+void MassRenameDialog::ProcessFileName(const std::wstring &strTarget,
 	const std::wstring &strFilename,int iFileIndex,std::wstring &strOutput)
 {
 	TCHAR szBaseName[MAX_PATH];
@@ -420,44 +400,39 @@ void CMassRenameDialog::ProcessFileName(const std::wstring &strTarget,
 	}
 }
 
-CMassRenameDialogPersistentSettings::CMassRenameDialogPersistentSettings() :
-CDialogSettings(SETTINGS_KEY)
+MassRenameDialogPersistentSettings::MassRenameDialogPersistentSettings() :
+DialogSettings(SETTINGS_KEY)
 {
 	m_iColumnWidth1 = DEFAULT_MASS_RENAME_COLUMN_WIDTH;
 	m_iColumnWidth2 = DEFAULT_MASS_RENAME_COLUMN_WIDTH;
 }
 
-CMassRenameDialogPersistentSettings::~CMassRenameDialogPersistentSettings()
+MassRenameDialogPersistentSettings& MassRenameDialogPersistentSettings::GetInstance()
 {
-
-}
-
-CMassRenameDialogPersistentSettings& CMassRenameDialogPersistentSettings::GetInstance()
-{
-	static CMassRenameDialogPersistentSettings sfadps;
+	static MassRenameDialogPersistentSettings sfadps;
 	return sfadps;
 }
 
-void CMassRenameDialogPersistentSettings::SaveExtraRegistrySettings(HKEY hKey)
+void MassRenameDialogPersistentSettings::SaveExtraRegistrySettings(HKEY hKey)
 {
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_COLUMN_WIDTH_1, m_iColumnWidth1);
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_COLUMN_WIDTH_2, m_iColumnWidth2);
 }
 
-void CMassRenameDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
+void MassRenameDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
 {
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_COLUMN_WIDTH_1, reinterpret_cast<DWORD *>(&m_iColumnWidth1));
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_COLUMN_WIDTH_2, reinterpret_cast<DWORD *>(&m_iColumnWidth2));
 }
 
-void CMassRenameDialogPersistentSettings::SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom,
+void MassRenameDialogPersistentSettings::SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom,
 	IXMLDOMElement *pParentNode)
 {
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_COLUMN_WIDTH_1, NXMLSettings::EncodeIntValue(m_iColumnWidth1));
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_COLUMN_WIDTH_2, NXMLSettings::EncodeIntValue(m_iColumnWidth2));
 }
 
-void CMassRenameDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bstrValue)
+void MassRenameDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bstrValue)
 {
 	if(lstrcmpi(bstrName, SETTING_COLUMN_WIDTH_1) == 0)
 	{

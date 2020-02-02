@@ -58,7 +58,7 @@ HRESULT NFileOperations::RenameFile(IShellItem *item, const std::wstring &newNam
 	return hr;
 }
 
-HRESULT NFileOperations::DeleteFiles(HWND hwnd, std::vector<LPCITEMIDLIST> &pidls,
+HRESULT NFileOperations::DeleteFiles(HWND hwnd, std::vector<PCIDLIST_ABSOLUTE> &pidls,
 	bool permanent, bool silent)
 {
 	IFileOperation *fo;
@@ -143,9 +143,9 @@ HRESULT NFileOperations::DeleteFiles(HWND hwnd, std::vector<LPCITEMIDLIST> &pidl
 }
 
 HRESULT NFileOperations::CopyFilesToFolder(HWND hOwner, const std::wstring &strTitle,
-	std::vector<LPCITEMIDLIST> &pidls, bool move)
+	std::vector<PCIDLIST_ABSOLUTE> &pidls, bool move)
 {
-	LPITEMIDLIST pidl;
+	PIDLIST_ABSOLUTE pidl;
 	BOOL bRes = NFileOperations::CreateBrowseDialog(hOwner,strTitle.c_str(),&pidl);
 
 	if(!bRes)
@@ -175,7 +175,7 @@ HRESULT NFileOperations::CopyFilesToFolder(HWND hOwner, const std::wstring &strT
 }
 
 HRESULT NFileOperations::CopyFiles(HWND hwnd, IShellItem *destinationFolder,
-	std::vector<LPCITEMIDLIST> &pidls, bool move)
+	std::vector<PCIDLIST_ABSOLUTE> &pidls, bool move)
 {
 	IFileOperation *fo;
 	HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&fo));
@@ -485,20 +485,17 @@ BOOL bMove,IDataObject **pClipboardDataObject)
 			stg[1].hGlobal = hglb;
 			stg[1].tymed = TYMED_HGLOBAL;
 
-			hr = CreateDataObject(ftc, stg, pClipboardDataObject, 2);
+			*pClipboardDataObject = CreateDataObject(ftc, stg, 2);
+
+			IDataObjectAsyncCapability *pAsyncCapability = NULL;
+			hr = (*pClipboardDataObject)->QueryInterface(IID_PPV_ARGS(&pAsyncCapability));
 
 			if(SUCCEEDED(hr))
 			{
-				IDataObjectAsyncCapability *pAsyncCapability = NULL;
-				hr = (*pClipboardDataObject)->QueryInterface(IID_PPV_ARGS(&pAsyncCapability));
+				pAsyncCapability->SetAsyncMode(TRUE);
+				pAsyncCapability->Release();
 
-				if(SUCCEEDED(hr))
-				{
-					pAsyncCapability->SetAsyncMode(TRUE);
-					pAsyncCapability->Release();
-
-					hr = OleSetClipboard(*pClipboardDataObject);
-				}
+				hr = OleSetClipboard(*pClipboardDataObject);
 			}
 		}
 	}
@@ -656,7 +653,7 @@ HRESULT NFileOperations::ResolveLink(HWND hwnd, DWORD fFlags, const TCHAR *szLin
 	return hr;
 }
 
-BOOL NFileOperations::CreateBrowseDialog(HWND hOwner,const std::wstring &strTitle,LPITEMIDLIST *ppidl)
+BOOL NFileOperations::CreateBrowseDialog(HWND hOwner,const std::wstring &strTitle,PIDLIST_ABSOLUTE *ppidl)
 {
 	CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
 

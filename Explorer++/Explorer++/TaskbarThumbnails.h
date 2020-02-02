@@ -5,10 +5,10 @@
 #pragma once
 
 #include "CoreInterface.h"
-#include "Navigation.h"
 #include "Tab.h"
 #include "TabContainer.h"
 #include "../Helper/Macros.h"
+#include <wil/resource.h>
 
 struct Config;
 
@@ -17,7 +17,7 @@ class TaskbarThumbnails
 public:
 
 	static TaskbarThumbnails *Create(IExplorerplusplus *expp, TabContainer *tabContainer,
-		Navigation *navigation, HINSTANCE instance, std::shared_ptr<Config> config);
+		HINSTANCE instance, std::shared_ptr<Config> config);
 
 private:
 
@@ -28,18 +28,12 @@ private:
 		ATOM atomClass;
 		HWND hProxy;
 		int iTabId;
-	};
-
-	struct TabPreviewInfo_t
-	{
-		int iTabId;
-		HBITMAP hbm;
-		POINT ptOrigin;
+		wil::unique_hicon icon;
 	};
 
 	TaskbarThumbnails(IExplorerplusplus *expp, TabContainer *tabContainer,
-		Navigation *navigation, HINSTANCE instance, std::shared_ptr<Config> config);
-	~TaskbarThumbnails();
+		HINSTANCE instance, std::shared_ptr<Config> config);
+	~TaskbarThumbnails() = default;
 
 	static LRESULT CALLBACK MainWndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK MainWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -53,17 +47,17 @@ private:
 	void CreateTabProxy(int iTabId, BOOL bSwitchToNewTab);
 	void RegisterTab(HWND hTabProxy, const TCHAR *szDisplayName, BOOL bTabActive);
 	void RemoveTabProxy(int iTabId);
-	HBITMAP CaptureTabScreenshot(int iTabId);
-	void GetTabLivePreviewBitmap(int iTabId, TabPreviewInfo_t *ptpi);
+	void OnDwmSendIconicThumbnail(HWND tabProxy, const Tab &tab, int maxWidth, int maxHeight);
+	wil::unique_hbitmap CaptureTabScreenshot(const Tab &tab);
+	wil::unique_hbitmap GetTabLivePreviewBitmap(const Tab &tab);
 	void OnTabSelectionChanged(const Tab &tab);
 	void OnNavigationCompleted(const Tab &tab);
 	void SetTabProxyIcon(const Tab &tab);
 	void InvalidateTaskbarThumbnailBitmap(const Tab &tab);
-	void UpdateTaskbarThumbnailTtitle(const Tab &tab);
+	void UpdateTaskbarThumbnailTitle(const Tab &tab);
 
 	IExplorerplusplus *m_expp;
 	TabContainer *m_tabContainer;
-	Navigation *m_navigation;
 	HINSTANCE m_instance;
 
 	ITaskbarList4 *m_pTaskbarList;

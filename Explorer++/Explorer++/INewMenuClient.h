@@ -6,12 +6,11 @@
 
 #include "CoreInterface.h"
 
-class CNewMenuClient : public INewMenuClient
+class NewMenuClient : public INewMenuClient
 {
 public:
 
-	CNewMenuClient(IExplorerplusplus *pexpp);
-	~CNewMenuClient();
+	NewMenuClient(IExplorerplusplus *pexpp);
 
 private:
 

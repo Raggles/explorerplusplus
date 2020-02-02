@@ -4,12 +4,10 @@
 
 #include "stdafx.h"
 #include "Helper.h"
-#include "FileWrappers.h"
 #include "Macros.h"
 #include "TimeHelper.h"
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-
 
 enum VersionSubBlockType_t
 {
@@ -164,13 +162,12 @@ BOOL GetFileSizeEx(const TCHAR *szFileName, PLARGE_INTEGER lpFileSize)
 {
 	BOOL bSuccess = FALSE;
 
-	HFilePtr hFile = CreateFilePtr(szFileName, GENERIC_READ,
-		FILE_SHARE_READ | FILE_SHARE_WRITE,
-		NULL, OPEN_EXISTING, NULL, NULL);
+	wil::unique_hfile file(CreateFile(szFileName, GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, NULL, NULL));
 
-	if(hFile)
+	if(file)
 	{
-		bSuccess = GetFileSizeEx(hFile.get(), lpFileSize);
+		bSuccess = GetFileSizeEx(file.get(), lpFileSize);
 	}
 
 	return bSuccess;
@@ -193,7 +190,7 @@ BOOL CompareFileTypes(const TCHAR *pszFile1,const TCHAR *pszFile2)
 	return FALSE;
 }
 
-HRESULT BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, DWORD cchMax)
+HRESULT BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, size_t cchMax)
 {
 	/* FindFirstFile is used instead of GetFileAttributes() or
 	GetFileAttributesEx() because of its behaviour
@@ -202,10 +199,10 @@ HRESULT BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, DWO
 	pagefile, which neither of the two functions
 	above can retrieve the attributes of). */
 	WIN32_FIND_DATA wfd;
-	HFindFilePtr hFindFile = FindFirstFilePtr(lpszFileName, &wfd);
+	wil::unique_hfind findFile(FindFirstFile(lpszFileName, &wfd));
 	HRESULT hr = E_FAIL;
 
-	if(hFindFile)
+	if(findFile)
 	{
 		hr = BuildFileAttributeString(wfd.dwFileAttributes, szOutput, cchMax);
 	}
@@ -213,7 +210,7 @@ HRESULT BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, DWO
 	return hr;
 }
 
-HRESULT BuildFileAttributeString(DWORD dwFileAttributes, TCHAR *szOutput, DWORD cchMax)
+HRESULT BuildFileAttributeString(DWORD dwFileAttributes, TCHAR *szOutput, size_t cchMax)
 {
 	TCHAR szAttributes[8];
 	int i = 0;
@@ -247,14 +244,14 @@ BOOL GetFileOwner(const TCHAR *szFile, TCHAR *szOwner, size_t cchMax)
 {
 	BOOL success = FALSE;
 
-	HFilePtr hFile = CreateFilePtr(szFile, READ_CONTROL, FILE_SHARE_READ, NULL,
-		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	wil::unique_hfile file(CreateFile(szFile, READ_CONTROL, FILE_SHARE_READ,
+		NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
 
-	if(hFile)
+	if(file)
 	{
 		PSID pSidOwner = NULL;
 		PSECURITY_DESCRIPTOR pSD = NULL;
-		DWORD dwRet = GetSecurityInfo(hFile.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION,
+		DWORD dwRet = GetSecurityInfo(file.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION,
 			&pSidOwner, NULL, NULL, NULL, &pSD);
 
 		if(dwRet == ERROR_SUCCESS)
@@ -345,13 +342,13 @@ DWORD GetNumFileHardLinks(const TCHAR *lpszFileName)
 {
 	DWORD nLinks = 0;
 
-	HFilePtr hFile = CreateFilePtr(lpszFileName, FILE_READ_ATTRIBUTES,
-		FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL);
+	wil::unique_hfile file(CreateFile(lpszFileName, FILE_READ_ATTRIBUTES,
+		FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL));
 
-	if(hFile)
+	if(file)
 	{
 		BY_HANDLE_FILE_INFORMATION FileInfo;
-		BOOL bRet = GetFileInformationByHandle(hFile.get(), &FileInfo);
+		BOOL bRet = GetFileInformationByHandle(file.get(), &FileInfo);
 
 		if(bRet)
 		{
@@ -443,7 +440,7 @@ BOOL GetFileNameFromUser(HWND hwnd,TCHAR *FullFileName,UINT cchMax,const TCHAR *
 	should be at least 256. */
 	assert(cchMax >= 256);
 
-	TCHAR *Filter = _T("Text Document (*.txt)\0*.txt\0All Files\0*.*\0\0");
+	const TCHAR *Filter = _T("Text Document (*.txt)\0*.txt\0All Files\0*.*\0\0");
 	OPENFILENAME ofn;
 	BOOL bRet;
 
@@ -572,7 +569,7 @@ BOOL GetFileVersionValue(const TCHAR *szFullFileName, VersionSubBlockType_t subB
 					}
 					else if(subBlockType == TRANSLATION)
 					{
-						*pwLanguage = PRIMARYLANGID(plcp[0].wLanguage);
+						*pwLanguage = plcp[0].wLanguage;
 					}
 					else if(subBlockType == STRING_TABLE_VALUE)
 					{
@@ -716,45 +713,23 @@ void SetFORMATETC(FORMATETC *pftc, CLIPFORMAT cfFormat,
 	pftc->ptd = ptd;
 }
 
-BOOL CopyTextToClipboard(const std::wstring &str)
-{
-	if(!OpenClipboard(NULL))
-	{
-		return FALSE;
-	}
-
-	EmptyClipboard();
-
-	size_t stringSize = (str.size() + 1) * sizeof(TCHAR);
-	HGLOBAL hGlobal = GlobalAlloc(GMEM_MOVEABLE, stringSize);
-	BOOL bRes = FALSE;
-
-	if(hGlobal != NULL)
-	{
-		LPVOID pMem = GlobalLock(hGlobal);
-
-		if(pMem != NULL)
-		{
-			memcpy(pMem, str.c_str(), stringSize);
-			GlobalUnlock(hGlobal);
-
-			HANDLE hData = SetClipboardData(CF_UNICODETEXT, hGlobal);
-
-			if(hData != NULL)
-			{
-				bRes = TRUE;
-			}
-		}
-	}
-
-	CloseClipboard();
-
-	return bRes;
-}
-
 bool IsKeyDown(int nVirtKey)
 {
 	SHORT status = (GetKeyState(nVirtKey) & 0x8000);
 
 	return (status != 0);
+}
+
+std::wstring CreateGUID()
+{
+	GUID guid;
+	CoCreateGuid(&guid);
+
+	TCHAR guidString[128];
+	StringFromGUID2(guid, guidString, SIZEOF_ARRAY(guidString));
+
+	std::wstring finalValue = guidString;
+	finalValue = finalValue.substr(1, finalValue.length() - 2);
+
+	return finalValue;
 }

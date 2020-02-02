@@ -5,20 +5,19 @@
 #include "stdafx.h"
 #include "Explorer++.h"
 #include "ApplicationToolbar.h"
+#include "BookmarkRegistryStorage.h"
 #include "ColorRuleHelper.h"
 #include "Config.h"
 #include "DefaultColumns.h"
 #include "Explorer++_internal.h"
 #include "MainToolbar.h"
 #include "../DisplayWindow/DisplayWindow.h"
-#include "../Helper/Bookmark.h"
 #include "../Helper/RegistrySettings.h"
 #include "../Helper/Macros.h"
 #include <boost/range/adaptor/map.hpp>
 
 namespace
 {
-	const TCHAR REG_BOOKMARKS_KEY[] = _T("Software\\Explorer++\\Bookmarks");
 	const TCHAR REG_TABS_KEY[] = _T("Software\\Explorer++\\Tabs");
 	const TCHAR REG_TOOLBARS_KEY[] = _T("Software\\Explorer++\\Toolbars");
 	const TCHAR REG_COLUMNS_KEY[] = _T("Software\\Explorer++\\DefaultColumns");
@@ -72,7 +71,7 @@ BOOL LoadAllowMultipleInstancesFromRegistry(void)
 	return bAllowMultipleInstances;
 }
 
-LONG Explorerplusplus::SaveSettings(void)
+LONG Explorerplusplus::SaveGenericSettingsToRegistry()
 {
 	HKEY			hSettingsKey;
 	DWORD			Disposition;
@@ -138,12 +137,14 @@ LONG Explorerplusplus::SaveSettings(void)
 		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("CloseMainWindowOnTabClose"),m_config->closeMainWindowOnTabClose);
 		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("ShowTabBarAtBottom"), m_config->showTabBarAtBottom);
 		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("OverwriteExistingFilesConfirmation"),m_config->overwriteExistingFilesConfirmation);
-		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("LargeToolbarIcons"),m_config->useLargeToolbarIcons);
+		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("LargeToolbarIcons"),m_config->useLargeToolbarIcons.get());
 		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("PlayNavigationSound"),m_config->playNavigationSound);
 
 		NRegistrySettings::SaveStringToRegistry(hSettingsKey,_T("NewTabDirectory"), m_config->defaultTabDirectory.c_str());
 
-		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("Language"),m_Language);
+		NRegistrySettings::SaveDwordToRegistry(hSettingsKey, _T("IconTheme"), m_config->iconTheme);
+
+		NRegistrySettings::SaveDwordToRegistry(hSettingsKey, _T("Language"), m_config->language);
 
 		/* Global settings. */
 		NRegistrySettings::SaveDwordToRegistry(hSettingsKey,_T("ShowHiddenGlobal"), m_config->defaultFolderSettings.showHidden);
@@ -201,7 +202,7 @@ LONG Explorerplusplus::SaveSettings(void)
 	return ReturnValue;
 }
 
-LONG Explorerplusplus::LoadSettings()
+LONG Explorerplusplus::LoadGenericSettingsFromRegistry()
 {
 	HKEY			hSettingsKey;
 	LONG			ReturnValue;
@@ -275,17 +276,31 @@ LONG Explorerplusplus::LoadSettings()
 		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("SynchronizeTreeview"),(LPDWORD)&m_config->synchronizeTreeview);
 		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("TVAutoExpandSelected"),(LPDWORD)&m_config->treeViewAutoExpandSelected);
 		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("OverwriteExistingFilesConfirmation"),(LPDWORD)&m_config->overwriteExistingFilesConfirmation);
-		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("LargeToolbarIcons"),(LPDWORD)&m_config->useLargeToolbarIcons);
+
+		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("LargeToolbarIcons"),&numericValue);
+		m_config->useLargeToolbarIcons.set(numericValue);
+
 		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("PlayNavigationSound"),(LPDWORD)&m_config->playNavigationSound);
 
 		TCHAR value[MAX_PATH];
 		NRegistrySettings::ReadStringFromRegistry(hSettingsKey,_T("NewTabDirectory"),value,SIZEOF_ARRAY(value));
 		m_config->defaultTabDirectory = value;
 
-		lStatus = NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("Language"),(LPDWORD)&m_Language);
+		DWORD dwordValue;
+		lStatus = NRegistrySettings::ReadDwordFromRegistry(hSettingsKey, _T("IconTheme"), &dwordValue);
 
-		if(lStatus == ERROR_SUCCESS)
+		if (lStatus == ERROR_SUCCESS)
+		{
+			m_config->iconTheme = IconTheme::_from_integral(dwordValue);
+		}
+
+		lStatus = NRegistrySettings::ReadDwordFromRegistry(hSettingsKey, _T("Language"), &dwordValue);
+
+		if (lStatus == ERROR_SUCCESS)
+		{
+			m_config->language = dwordValue;
 			m_bLanguageLoaded = TRUE;
+		}
 
 		/* Global settings. */
 		NRegistrySettings::ReadDwordFromRegistry(hSettingsKey,_T("ShowHiddenGlobal"),(LPDWORD)&m_config->defaultFolderSettings.showHidden);
@@ -411,26 +426,14 @@ void DeleteKey(HKEY hKey)
 	}
 }
 
-void Explorerplusplus::SaveBookmarksToRegistry(void)
+void Explorerplusplus::SaveBookmarksToRegistry()
 {
-	SHDeleteKey(HKEY_CURRENT_USER,REG_BOOKMARKS_KEY);
-	m_bfAllBookmarks->SerializeToRegistry(REG_BOOKMARKS_KEY);
+	BookmarkRegistryStorage::Save(&m_bookmarkTree);
 }
 
-void Explorerplusplus::LoadBookmarksFromRegistry(void)
+void Explorerplusplus::LoadBookmarksFromRegistry()
 {
-	HKEY		hBookmarksKey;
-	LONG		ReturnValue;
-
-	ReturnValue = RegOpenKeyEx(HKEY_CURRENT_USER,REG_BOOKMARKS_KEY,
-		0,KEY_READ,&hBookmarksKey);
-
-	if(ReturnValue == ERROR_SUCCESS)
-	{
-		/* TODO: Load bookmarks. */
-
-		RegCloseKey(hBookmarksKey);
-	}
+	BookmarkRegistryStorage::Load(&m_bookmarkTree);
 }
 
 void Explorerplusplus::SaveTabSettingsToRegistry(void)
@@ -439,7 +442,6 @@ void Explorerplusplus::SaveTabSettingsToRegistry(void)
 	HKEY	hTabKey;
 	HKEY	hColumnsKey;
 	TCHAR	szItemKey[128];
-	LPITEMIDLIST	pidlDirectory = NULL;
 	UINT	ViewMode;
 	UINT	SortMode;
 	DWORD	Disposition;
@@ -472,10 +474,9 @@ void Explorerplusplus::SaveTabSettingsToRegistry(void)
 
 			if(ReturnValue == ERROR_SUCCESS)
 			{
-				pidlDirectory = tab.GetShellBrowser()->QueryCurrentDirectoryIdl();
+				auto pidlDirectory = tab.GetShellBrowser()->GetDirectoryIdl();
 				RegSetValueEx(hTabKey,_T("Directory"),0,REG_BINARY,
-					(LPBYTE)pidlDirectory,ILGetSize(pidlDirectory));
-				CoTaskMemFree((LPVOID)pidlDirectory);
+					(LPBYTE)pidlDirectory.get(),ILGetSize(pidlDirectory.get()));
 
 				ViewMode = tab.GetShellBrowser()->GetViewMode();
 
@@ -491,10 +492,8 @@ void Explorerplusplus::SaveTabSettingsToRegistry(void)
 				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("ShowHidden"), tab.GetShellBrowser()->GetShowHidden());
 				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("AutoArrange"), tab.GetShellBrowser()->GetAutoArrange());
 
-				TCHAR szFilter[512];
-
-				tab.GetShellBrowser()->GetFilter(szFilter,SIZEOF_ARRAY(szFilter));
-				NRegistrySettings::SaveStringToRegistry(hTabKey,_T("Filter"),szFilter);
+				std::wstring filter = tab.GetShellBrowser()->GetFilter();
+				NRegistrySettings::SaveStringToRegistry(hTabKey,_T("Filter"),filter.c_str());
 
 				/* Now save the tabs columns. */
 				ReturnValue = RegCreateKeyEx(hTabKey,_T("Columns"),
@@ -527,8 +526,8 @@ void Explorerplusplus::SaveTabSettingsToRegistry(void)
 				}
 
 				/* High-level settings. */
-				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("Locked"),tab.GetLocked());
-				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("AddressLocked"),tab.GetAddressLocked());
+				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("Locked"),tab.GetLockState() == Tab::LockState::Locked);
+				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("AddressLocked"),tab.GetLockState() == Tab::LockState::AddressLocked);
 				NRegistrySettings::SaveDwordToRegistry(hTabKey,_T("UseCustomName"),tab.GetUseCustomName());
 
 				if(tab.GetUseCustomName())
@@ -652,13 +651,22 @@ int Explorerplusplus::LoadTabSettingsFromRegistry()
 
 			TabSettings tabSettings;
 
+			tabSettings.index = i;
 			tabSettings.selected = true;
 
 			NRegistrySettings::ReadDwordFromRegistry(hTabKey,_T("Locked"),&value);
-			tabSettings.locked = value;
+
+			if (value)
+			{
+				tabSettings.lockState = Tab::LockState::Locked;
+			}
 
 			NRegistrySettings::ReadDwordFromRegistry(hTabKey,_T("AddressLocked"),&value);
-			tabSettings.addressLocked = value;
+
+			if (value)
+			{
+				tabSettings.lockState = Tab::LockState::AddressLocked;
+			}
 
 			TCHAR customName[64];
 			NRegistrySettings::ReadStringFromRegistry(hTabKey,_T("CustomName"),customName,SIZEOF_ARRAY(customName));
@@ -669,7 +677,7 @@ int Explorerplusplus::LoadTabSettingsFromRegistry()
 			if(hr == S_OK)
 				nTabsCreated++;
 
-			CoTaskMemFree((LPVOID)pidlDirectory);
+			CoTaskMemFree(pidlDirectory);
 			RegCloseKey(hTabKey);
 
 			i++;
@@ -973,7 +981,7 @@ void Explorerplusplus::LoadApplicationToolbarFromRegistry()
 
 	if(ReturnValue == ERROR_SUCCESS)
 	{
-		CApplicationToolbarPersistentSettings::GetInstance().LoadRegistrySettings(hKey);
+		ApplicationToolbarPersistentSettings::GetInstance().LoadRegistrySettings(hKey);
 
 		RegCloseKey(hKey);
 	}
@@ -989,7 +997,7 @@ void Explorerplusplus::SaveApplicationToolbarToRegistry()
 
 	if(ReturnValue == ERROR_SUCCESS)
 	{
-		CApplicationToolbarPersistentSettings::GetInstance().SaveRegistrySettings(hKey);
+		ApplicationToolbarPersistentSettings::GetInstance().SaveRegistrySettings(hKey);
 
 		RegCloseKey(hKey);
 	}

@@ -7,10 +7,10 @@
 #include "../Helper/Macros.h"
 
 
-CApplicationToolbarDropHandler::CApplicationToolbarDropHandler(HWND hToolbar, CApplicationToolbar *toolbar) :
+ApplicationToolbarDropHandler::ApplicationToolbarDropHandler(HWND hToolbar, ApplicationToolbar *toolbar) :
 m_RefCount(1),
-m_hToolbar(hToolbar),
-m_toolbar(toolbar)
+m_toolbar(toolbar),
+m_hToolbar(hToolbar)
 {
 	HRESULT hr = CoCreateInstance(CLSID_DragDropHelper, NULL, CLSCTX_INPROC_SERVER,
 		IID_PPV_ARGS(&m_pDragSourceHelper));
@@ -21,12 +21,7 @@ m_toolbar(toolbar)
 	}
 }
 
-CApplicationToolbarDropHandler::~CApplicationToolbarDropHandler()
-{
-
-}
-
-HRESULT __stdcall CApplicationToolbarDropHandler::QueryInterface(REFIID iid, void **ppvObject)
+HRESULT __stdcall ApplicationToolbarDropHandler::QueryInterface(REFIID iid, void **ppvObject)
 {
 	if(ppvObject == NULL)
 	{
@@ -53,12 +48,12 @@ HRESULT __stdcall CApplicationToolbarDropHandler::QueryInterface(REFIID iid, voi
 	return E_NOINTERFACE;
 }
 
-ULONG __stdcall CApplicationToolbarDropHandler::AddRef(void)
+ULONG __stdcall ApplicationToolbarDropHandler::AddRef(void)
 {
 	return ++m_RefCount;
 }
 
-ULONG __stdcall CApplicationToolbarDropHandler::Release(void)
+ULONG __stdcall ApplicationToolbarDropHandler::Release(void)
 {
 	m_RefCount--;
 
@@ -71,7 +66,7 @@ ULONG __stdcall CApplicationToolbarDropHandler::Release(void)
 	return m_RefCount;
 }
 
-HRESULT _stdcall CApplicationToolbarDropHandler::DragEnter(IDataObject *pDataObject,
+HRESULT _stdcall ApplicationToolbarDropHandler::DragEnter(IDataObject *pDataObject,
 	DWORD grfKeyState, POINTL pt, DWORD *pdwEffect)
 {
 	UNREFERENCED_PARAMETER(grfKeyState);
@@ -95,7 +90,7 @@ HRESULT _stdcall CApplicationToolbarDropHandler::DragEnter(IDataObject *pDataObj
 	return hr;
 }
 
-HRESULT _stdcall CApplicationToolbarDropHandler::DragOver(DWORD grfKeyState,
+HRESULT _stdcall ApplicationToolbarDropHandler::DragOver(DWORD grfKeyState,
 	POINTL pt, DWORD *pdwEffect)
 {
 	UNREFERENCED_PARAMETER(grfKeyState);
@@ -107,20 +102,20 @@ HRESULT _stdcall CApplicationToolbarDropHandler::DragOver(DWORD grfKeyState,
 	return S_OK;
 }
 
-HRESULT _stdcall CApplicationToolbarDropHandler::DragLeave(void)
+HRESULT _stdcall ApplicationToolbarDropHandler::DragLeave(void)
 {
 	m_pDropTargetHelper->DragLeave();
 
 	return S_OK;
 }
 
-FORMATETC CApplicationToolbarDropHandler::GetSupportedDropFormat()
+FORMATETC ApplicationToolbarDropHandler::GetSupportedDropFormat()
 {
 	FORMATETC ftc = {CF_HDROP, 0, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
 	return ftc;
 }
 
-HRESULT _stdcall CApplicationToolbarDropHandler::Drop(IDataObject *pDataObject,
+HRESULT _stdcall ApplicationToolbarDropHandler::Drop(IDataObject *pDataObject,
 	DWORD grfKeyState, POINTL ptl, DWORD *pdwEffect)
 {
 	UNREFERENCED_PARAMETER(grfKeyState);
@@ -166,7 +161,7 @@ HRESULT _stdcall CApplicationToolbarDropHandler::Drop(IDataObject *pDataObject,
 	return S_OK;
 }
 
-void CApplicationToolbarDropHandler::OpenExistingButton(DROPFILES *df, int buttonIndex)
+void ApplicationToolbarDropHandler::OpenExistingButton(DROPFILES *df, int buttonIndex)
 {
 	int numFiles = DragQueryFile(reinterpret_cast<HDROP>(df), 0xFFFFFFFF, NULL, NULL);
 
@@ -190,7 +185,7 @@ void CApplicationToolbarDropHandler::OpenExistingButton(DROPFILES *df, int butto
 	m_toolbar->OpenItem(buttonIndex, &parameters);
 }
 
-void CApplicationToolbarDropHandler::AddNewButton(DROPFILES *df)
+void ApplicationToolbarDropHandler::AddNewButton(DROPFILES *df)
 {
 	int numFiles = DragQueryFile(reinterpret_cast<HDROP>(df), 0xFFFFFFFF, NULL, NULL);
 

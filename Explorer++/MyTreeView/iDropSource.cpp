@@ -4,21 +4,19 @@
 
 #include "stdafx.h"
 #include "MyTreeView.h"
-#include "MyTreeViewInternal.h"
 
-
-HRESULT _stdcall CMyTreeView::QueryContinueDrag(BOOL fEscapePressed,DWORD grfKeyState)
+HRESULT _stdcall MyTreeView::QueryContinueDrag(BOOL fEscapePressed,DWORD grfKeyState)
 {
 	DWORD dwStopButton = 0;
 
-	if(m_DragType == DRAG_TYPE_LEFTCLICK)
+	if(m_DragType == DragType::LeftClick)
 	{
 		if((grfKeyState & MK_LBUTTON) == 0)
 			return DRAGDROP_S_DROP;
 
 		dwStopButton = MK_RBUTTON;
 	}
-	else if(m_DragType == DRAG_TYPE_RIGHTCLICK)
+	else if(m_DragType == DragType::RightClick)
 	{
 		if((grfKeyState & MK_RBUTTON) == 0)
 			return DRAGDROP_S_DROP;
@@ -32,7 +30,7 @@ HRESULT _stdcall CMyTreeView::QueryContinueDrag(BOOL fEscapePressed,DWORD grfKey
 	return S_OK;
 }
 
-HRESULT _stdcall CMyTreeView::GiveFeedback(DWORD dwEffect)
+HRESULT _stdcall MyTreeView::GiveFeedback(DWORD dwEffect)
 {
 	UNREFERENCED_PARAMETER(dwEffect);
 

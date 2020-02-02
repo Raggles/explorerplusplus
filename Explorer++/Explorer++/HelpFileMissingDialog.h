@@ -6,12 +6,11 @@
 
 #include "../Helper/BaseDialog.h"
 
-class CHelpFileMissingDialog : public CBaseDialog
+class HelpFileMissingDialog : public BaseDialog
 {
 public:
 
-	CHelpFileMissingDialog(HINSTANCE hInstance,int iResource,HWND hParent);
-	~CHelpFileMissingDialog();
+	HelpFileMissingDialog(HINSTANCE hInstance, HWND hParent);
 
 protected:
 

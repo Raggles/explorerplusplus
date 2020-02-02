@@ -6,6 +6,7 @@
 #include "DrivesToolbar.h"
 #include "Explorer++_internal.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "TabContainer.h"
 #include "../Helper/Controls.h"
 #include "../Helper/DriveInfo.h"
@@ -13,35 +14,33 @@
 #include "../Helper/Macros.h"
 #include "../Helper/ShellHelper.h"
 
-CDrivesToolbar *CDrivesToolbar::Create(HWND hParent, UINT uIDStart, UINT uIDEnd,
+DrivesToolbar *DrivesToolbar::Create(HWND hParent, UINT uIDStart, UINT uIDEnd,
 	HINSTANCE hInstance, IExplorerplusplus *pexpp, Navigation *navigation)
 {
-	return new CDrivesToolbar(hParent, uIDStart, uIDEnd, hInstance, pexpp, navigation);
+	return new DrivesToolbar(hParent, uIDStart, uIDEnd, hInstance, pexpp, navigation);
 }
 
-CDrivesToolbar::CDrivesToolbar(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance,
+DrivesToolbar::DrivesToolbar(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance,
 	IExplorerplusplus *pexpp, Navigation *navigation) :
-	CBaseWindow(CreateDrivesToolbar(hParent)),
+	BaseWindow(CreateDrivesToolbar(hParent)),
+	m_hInstance(hInstance),
 	m_uIDStart(uIDStart),
 	m_uIDEnd(uIDEnd),
-	m_hInstance(hInstance),
 	m_pexpp(pexpp),
 	m_navigation(navigation),
 	m_IDCounter(0)
 {
 	Initialize(hParent);
 
-	CHardwareChangeNotifier::GetInstance().AddObserver(this);
+	HardwareChangeNotifier::GetInstance().AddObserver(this);
 }
 
-CDrivesToolbar::~CDrivesToolbar()
+DrivesToolbar::~DrivesToolbar()
 {
-	RemoveWindowSubclass(GetParent(m_hwnd),DrivesToolbarParentProcStub,PARENT_SUBCLASS_ID);
-
-	CHardwareChangeNotifier::GetInstance().RemoveObserver(this);
+	HardwareChangeNotifier::GetInstance().RemoveObserver(this);
 }
 
-HWND CDrivesToolbar::CreateDrivesToolbar(HWND hParent)
+HWND DrivesToolbar::CreateDrivesToolbar(HWND hParent)
 {
 	return CreateToolbar(hParent, WS_CHILD | WS_VISIBLE |
 		WS_CLIPSIBLINGS | WS_CLIPCHILDREN | TBSTYLE_TOOLTIPS |
@@ -50,22 +49,27 @@ HWND CDrivesToolbar::CreateDrivesToolbar(HWND hParent)
 		TBSTYLE_EX_HIDECLIPPEDBUTTONS);
 }
 
-void CDrivesToolbar::Initialize(HWND hParent)
+void DrivesToolbar::Initialize(HWND hParent)
 {
-	SendMessage(m_hwnd,TB_SETBITMAPSIZE,0,MAKELONG(16,16));
 	SendMessage(m_hwnd,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
 
 	HIMAGELIST himlSmall;
 	Shell_GetImageLists(NULL,&himlSmall);
+
+	int iconWidth;
+	int iconHeight;
+	ImageList_GetIconSize(himlSmall, &iconWidth, &iconHeight);
+	SendMessage(m_hwnd, TB_SETBITMAPSIZE, 0, MAKELONG(iconWidth, iconHeight));
+
 	SendMessage(m_hwnd,TB_SETIMAGELIST,0,reinterpret_cast<LPARAM>(himlSmall));
 
-	SetWindowSubclass(hParent,DrivesToolbarParentProcStub,PARENT_SUBCLASS_ID,
-		reinterpret_cast<DWORD_PTR>(this));
+	m_windowSubclasses.push_back(WindowSubclassWrapper(hParent, DrivesToolbarParentProcStub,
+		PARENT_SUBCLASS_ID, reinterpret_cast<DWORD_PTR>(this)));
 
 	InsertDrives();
 }
 
-INT_PTR CDrivesToolbar::OnMButtonUp(const POINTS *pts)
+INT_PTR DrivesToolbar::OnMButtonUp(const POINTS *pts)
 {
 	POINT pt;
 	POINTSTOPOINT(pt, *pts);
@@ -85,7 +89,7 @@ INT_PTR CDrivesToolbar::OnMButtonUp(const POINTS *pts)
 	return 0;
 }
 
-void CDrivesToolbar::OnDeviceArrival(DEV_BROADCAST_HDR *dbh)
+void DrivesToolbar::OnDeviceArrival(DEV_BROADCAST_HDR *dbh)
 {
 	if(dbh->dbch_devicetype != DBT_DEVTYP_VOLUME)
 	{
@@ -118,7 +122,7 @@ void CDrivesToolbar::OnDeviceArrival(DEV_BROADCAST_HDR *dbh)
 	}
 }
 
-void CDrivesToolbar::OnDeviceRemoveComplete(DEV_BROADCAST_HDR *dbh)
+void DrivesToolbar::OnDeviceRemoveComplete(DEV_BROADCAST_HDR *dbh)
 {
 	if(dbh->dbch_devicetype != DBT_DEVTYP_VOLUME)
 	{
@@ -144,17 +148,17 @@ void CDrivesToolbar::OnDeviceRemoveComplete(DEV_BROADCAST_HDR *dbh)
 	}
 }
 
-LRESULT CALLBACK DrivesToolbarParentProcStub(HWND hwnd,UINT uMsg,
+LRESULT CALLBACK DrivesToolbar::DrivesToolbarParentProcStub(HWND hwnd,UINT uMsg,
 	WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData)
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	CDrivesToolbar *pdt = reinterpret_cast<CDrivesToolbar *>(dwRefData);
+	DrivesToolbar *pdt = reinterpret_cast<DrivesToolbar *>(dwRefData);
 
 	return pdt->DrivesToolbarParentProc(hwnd,uMsg,wParam,lParam);
 }
 
-LRESULT CALLBACK CDrivesToolbar::DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+LRESULT CALLBACK DrivesToolbar::DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	switch(uMsg)
 	{
@@ -167,7 +171,7 @@ LRESULT CALLBACK CDrivesToolbar::DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPA
 			if(iIndex != -1)
 			{
 				std::wstring Path = GetDrivePath(iIndex);
-				m_navigation->BrowseFolderInCurrentTab(Path.c_str(),SBSP_ABSOLUTE);
+				m_navigation->BrowseFolderInCurrentTab(Path.c_str());
 			}
 
 			return 0;
@@ -191,20 +195,18 @@ LRESULT CALLBACK CDrivesToolbar::DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPA
 						{
 							std::wstring Path = GetDrivePath(iIndex);
 
-							LPITEMIDLIST pidlItem = NULL;
-							HRESULT hr = GetIdlFromParsingName(Path.c_str(),&pidlItem);
+							unique_pidl_absolute pidlItem;
+							HRESULT hr = SHParseDisplayName(Path.c_str(), nullptr, wil::out_param(pidlItem), 0, nullptr);
 
 							if(SUCCEEDED(hr))
 							{
 								ClientToScreen(m_hwnd,&pnmm->pt);
 
-								std::list<LPITEMIDLIST> pidlItemList;
-								CFileContextMenuManager fcmm(m_hwnd,pidlItem,pidlItemList);
+								std::vector<PCITEMID_CHILD> pidlItems;
+								FileContextMenuManager fcmm(m_hwnd,pidlItem.get(),pidlItems);
 
 								fcmm.ShowMenu(this,MIN_SHELL_MENU_ID,MAX_SHELL_MENU_ID,&pnmm->pt,m_pexpp->GetStatusBar(),
 									NULL,FALSE,IsKeyDown(VK_SHIFT));
-
-								CoTaskMemFree(pidlItem);
 							}
 
 							return TRUE;
@@ -236,7 +238,7 @@ LRESULT CALLBACK CDrivesToolbar::DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPA
 	return DefSubclassProc(hwnd,uMsg,wParam,lParam);
 }
 
-void CDrivesToolbar::InsertDrives()
+void DrivesToolbar::InsertDrives()
 {
 	DWORD dwSize = GetLogicalDriveStrings(0,NULL);
 
@@ -256,7 +258,7 @@ void CDrivesToolbar::InsertDrives()
 	}
 }
 
-void CDrivesToolbar::InsertDrive(const std::wstring &DrivePath)
+void DrivesToolbar::InsertDrive(const std::wstring &DrivePath)
 {
 	TCHAR szDisplayName[32];
 	StringCchCopy(szDisplayName,SIZEOF_ARRAY(szDisplayName),DrivePath.c_str());
@@ -286,7 +288,7 @@ void CDrivesToolbar::InsertDrive(const std::wstring &DrivePath)
 	++m_IDCounter;
 }
 
-void CDrivesToolbar::RemoveDrive(const std::wstring &DrivePath)
+void DrivesToolbar::RemoveDrive(const std::wstring &DrivePath)
 {
 	DriveInformation_t di = GetDrivePosition(DrivePath);
 
@@ -300,7 +302,7 @@ void CDrivesToolbar::RemoveDrive(const std::wstring &DrivePath)
 
 /* Updates an items icon. This may be necessary,
 for example, if a cd/dvd is inserted/removed. */
-void CDrivesToolbar::UpdateDriveIcon(const std::wstring &DrivePath)
+void DrivesToolbar::UpdateDriveIcon(const std::wstring &DrivePath)
 {
 	DriveInformation_t di = GetDrivePosition(DrivePath);
 
@@ -312,7 +314,7 @@ void CDrivesToolbar::UpdateDriveIcon(const std::wstring &DrivePath)
 	}
 }
 
-int CDrivesToolbar::GetSortedPosition(const std::wstring &DrivePath)
+int DrivesToolbar::GetSortedPosition(const std::wstring &DrivePath)
 {
 	int Position = 0;
 
@@ -337,7 +339,7 @@ int CDrivesToolbar::GetSortedPosition(const std::wstring &DrivePath)
 	return Position;
 }
 
-CDrivesToolbar::DriveInformation_t CDrivesToolbar::GetDrivePosition(const std::wstring &DrivePath)
+DrivesToolbar::DriveInformation_t DrivesToolbar::GetDrivePosition(const std::wstring &DrivePath)
 {
 	DriveInformation_t di;
 	di.Position = -1;
@@ -363,7 +365,7 @@ CDrivesToolbar::DriveInformation_t CDrivesToolbar::GetDrivePosition(const std::w
 	return di;
 }
 
-std::wstring CDrivesToolbar::GetDrivePath(int iIndex)
+std::wstring DrivesToolbar::GetDrivePath(int iIndex)
 {
 	TBBUTTON tbButton;
 	SendMessage(m_hwnd,TB_GETBUTTON,iIndex,reinterpret_cast<LPARAM>(&tbButton));
@@ -374,28 +376,27 @@ std::wstring CDrivesToolbar::GetDrivePath(int iIndex)
 	return itr->second;
 }
 
-void CDrivesToolbar::AddMenuEntries(LPCITEMIDLIST pidlParent,
-	const std::list<LPITEMIDLIST> &pidlItemList,DWORD_PTR dwData,HMENU hMenu)
+void DrivesToolbar::AddMenuEntries(PCIDLIST_ABSOLUTE pidlParent,
+	const std::vector<PITEMID_CHILD> &pidlItems, DWORD_PTR dwData, HMENU hMenu)
 {
 	UNREFERENCED_PARAMETER(pidlParent);
-	UNREFERENCED_PARAMETER(pidlItemList);
+	UNREFERENCED_PARAMETER(pidlItems);
 	UNREFERENCED_PARAMETER(dwData);
 
-	TCHAR szTemp[64];
-	LoadString(m_hInstance,IDS_GENERAL_OPEN_IN_NEW_TAB,szTemp,SIZEOF_ARRAY(szTemp));
+	std::wstring openInNewTabText = ResourceHelper::LoadString(m_hInstance,IDS_GENERAL_OPEN_IN_NEW_TAB);
 
 	MENUITEMINFO mii;
 	mii.cbSize		= sizeof(mii);
 	mii.fMask		= MIIM_STRING|MIIM_ID;
 	mii.wID			= MENU_ID_OPEN_IN_NEW_TAB;
-	mii.dwTypeData	= szTemp;
+	mii.dwTypeData	= openInNewTabText.data();
 	InsertMenuItem(hMenu,1,TRUE,&mii);
 }
 
-BOOL CDrivesToolbar::HandleShellMenuItem(LPCITEMIDLIST pidlParent,
-	const std::list<LPITEMIDLIST> &pidlItemList,DWORD_PTR dwData,const TCHAR *szCmd)
+BOOL DrivesToolbar::HandleShellMenuItem(PCIDLIST_ABSOLUTE pidlParent,
+	const std::vector<PITEMID_CHILD> &pidlItems, DWORD_PTR dwData, const TCHAR *szCmd)
 {
-	UNREFERENCED_PARAMETER(pidlItemList);
+	UNREFERENCED_PARAMETER(pidlItems);
 	UNREFERENCED_PARAMETER(dwData);
 
 	if(StrCmpI(szCmd,_T("open")) == 0)
@@ -407,10 +408,10 @@ BOOL CDrivesToolbar::HandleShellMenuItem(LPCITEMIDLIST pidlParent,
 	return FALSE;
 }
 
-void CDrivesToolbar::HandleCustomMenuItem(LPCITEMIDLIST pidlParent,
-	const std::list<LPITEMIDLIST> &pidlItemList,int iCmd)
+void DrivesToolbar::HandleCustomMenuItem(PCIDLIST_ABSOLUTE pidlParent,
+	const std::vector<PITEMID_CHILD> &pidlItems, int iCmd)
 {
-	UNREFERENCED_PARAMETER(pidlItemList);
+	UNREFERENCED_PARAMETER(pidlItems);
 
 	switch(iCmd)
 	{

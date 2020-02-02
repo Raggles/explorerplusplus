@@ -15,10 +15,8 @@ automatically delete itself.
 Note that derived classes can
 also safely delete the object
 before the window is destroyed. */
-class CBaseWindow : public CMessageForwarder
+class BaseWindow : public MessageForwarder
 {
-	friend LRESULT CALLBACK BaseWindowProcStub(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
-
 public:
 
 	/* Ideally private, and the
@@ -28,8 +26,8 @@ public:
 
 protected:
 
-	CBaseWindow(HWND hwnd);
-	virtual ~CBaseWindow();
+	BaseWindow(HWND hwnd);
+	virtual ~BaseWindow();
 
 	INT_PTR	GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
@@ -39,9 +37,10 @@ protected:
 
 private:
 
-	DISALLOW_COPY_AND_ASSIGN(CBaseWindow);
+	DISALLOW_COPY_AND_ASSIGN(BaseWindow);
 
 	static const UINT_PTR SUBCLASS_ID = 0;
 
+	static LRESULT CALLBACK BaseWindowProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK BaseWindowProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 };

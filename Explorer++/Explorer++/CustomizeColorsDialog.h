@@ -4,41 +4,40 @@
 
 #pragma once
 
-#include <vector>
-#include "Explorer++_internal.h"
 #include "ColorRuleHelper.h"
+#include "CoreInterface.h"
+#include "Explorer++_internal.h"
 #include "../Helper/BaseDialog.h"
-#include "../Helper/ResizableDialog.h"
 #include "../Helper/DialogSettings.h"
+#include "../Helper/ResizableDialog.h"
+#include <vector>
 
-class CCustomizeColorsDialog;
+class CustomizeColorsDialog;
 
-class CCustomizeColorsDialogPersistentSettings : public CDialogSettings
+class CustomizeColorsDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CCustomizeColorsDialogPersistentSettings();
-
-	static CCustomizeColorsDialogPersistentSettings &GetInstance();
+	static CustomizeColorsDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CCustomizeColorsDialog;
+	friend CustomizeColorsDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
-	CCustomizeColorsDialogPersistentSettings();
+	CustomizeColorsDialogPersistentSettings();
 
-	CCustomizeColorsDialogPersistentSettings(const CCustomizeColorsDialogPersistentSettings &);
-	CCustomizeColorsDialogPersistentSettings & operator=(const CCustomizeColorsDialogPersistentSettings &);
+	CustomizeColorsDialogPersistentSettings(const CustomizeColorsDialogPersistentSettings &);
+	CustomizeColorsDialogPersistentSettings & operator=(const CustomizeColorsDialogPersistentSettings &);
 };
 
-class CCustomizeColorsDialog : public CBaseDialog
+class CustomizeColorsDialog : public BaseDialog
 {
 public:
 
-	CCustomizeColorsDialog(HINSTANCE hInstance,int iResource,HWND hParent,std::vector<NColorRuleHelper::ColorRule_t> *pColorRuleList);
-	~CCustomizeColorsDialog();
+	CustomizeColorsDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
+		std::vector<NColorRuleHelper::ColorRule_t> *pColorRuleList);
 
 protected:
 
@@ -46,11 +45,12 @@ protected:
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnNotify(NMHDR *pnmhdr);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
+
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
-	void	GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void	SaveState();
 
 	void	OnNew();
@@ -63,8 +63,9 @@ private:
 	void	OnOk();
 	void	OnCancel();
 
-	HICON	m_hDialogIcon;
-	std::vector<NColorRuleHelper::ColorRule_t>	*m_pColorRuleList;
+	IExplorerplusplus *m_expp;
 
-	CCustomizeColorsDialogPersistentSettings	*m_pccdps;
+	std::vector<NColorRuleHelper::ColorRule_t> *m_pColorRuleList;
+
+	CustomizeColorsDialogPersistentSettings *m_persistentSettings;
 };

@@ -4,65 +4,67 @@
 
 #include "stdafx.h"
 #include "ResourceHelper.h"
-#include "MainResource.h"
+#include "../Helper/DpiCompatibility.h"
 #include "../Helper/ImageHelper.h"
 
-HImageListPtr GetShellImageList()
+std::wstring ResourceHelper::LoadString(HINSTANCE instance, UINT stringId)
 {
-	HImageListPtr imageList = HImageListPtr(ImageList_Create(16, 16, ILC_COLOR32 | ILC_MASK, 0, 48));
+	WCHAR *string;
+	int numCharacters = LoadString(instance, stringId, reinterpret_cast<LPWSTR>(&string), 0);
 
-	if (!imageList)
+	if (numCharacters == 0)
 	{
-		return HImageListPtr();
+		throw std::runtime_error("String resource not found");
 	}
 
-	HBitmapPtr bitmap = HBitmapPtr(static_cast<HBITMAP>(LoadImage(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDB_SHELLIMAGES), IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION)));
-
-	if (!bitmap)
-	{
-		return HImageListPtr();
-	}
-
-	const int res = ImageList_Add(imageList.get(), bitmap.get(), nullptr);
-
-	if (res == -1)
-	{
-		return HImageListPtr();
-	}
-
-	return imageList;
+	return std::wstring(string, numCharacters);
 }
 
-void SetMenuItemImageFromImageList(HMENU menu, UINT menuItemId, HIMAGELIST imageList, int bitmapIndex, std::vector<HBitmapPtr> &menuImages)
+void ResourceHelper::SetMenuItemImage(HMENU menu, UINT menuItemId, IconResourceLoader *iconResourceLoader,
+	Icon icon, int dpi, std::vector<wil::unique_hbitmap> &menuImages)
 {
-	HIconPtr icon = HIconPtr(ImageList_GetIcon(imageList, bitmapIndex, ILD_NORMAL));
-
-	if (!icon)
-	{
-		return;
-	}
-
-	HBitmapPtr bitmapPARGB32 = HBitmapPtr(ImageHelper::IconToBitmapPARGB32(icon.get(), 16, 16));
-
-	if (!bitmapPARGB32)
-	{
-		return;
-	}
+	DpiCompatibility dpiCompat;
+	int iconWidth = dpiCompat.GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+	int iconHeight = dpiCompat.GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+	wil::unique_hbitmap bitmap = iconResourceLoader->LoadBitmapFromPNGAndScale(icon, iconWidth, iconHeight);
 
 	MENUITEMINFO mii;
 	mii.cbSize = sizeof(mii);
 	mii.fMask = MIIM_BITMAP;
-	mii.hbmpItem = bitmapPARGB32.get();
-	const BOOL res = SetMenuItemInfo(menu, menuItemId, FALSE, &mii);
+	mii.hbmpItem = bitmap.get();
+	const BOOL res = SetMenuItemInfo(menu, menuItemId, false, &mii);
 
 	if (res)
 	{
-		/* The bitmap needs to live
-		for as long as the menu
-		does. It's up to the caller
-		to ensure that the bitmap
-		is destroyed at the appropriate
-		time. */
-		menuImages.push_back(std::move(bitmapPARGB32));
+		/* The bitmap needs to live for as long as the menu does. */
+		menuImages.push_back(std::move(bitmap));
 	}
+}
+
+std::tuple<wil::unique_himagelist, IconImageListMapping> ResourceHelper::CreateIconImageList(IconResourceLoader *iconResourceLoader,
+	int iconWidth, int iconHeight, const std::initializer_list<Icon> &icons)
+{
+	wil::unique_himagelist imageList(ImageList_Create(iconWidth, iconHeight, ILC_COLOR32 | ILC_MASK, 0, static_cast<int>(icons.size())));
+	IconImageListMapping imageListMappings;
+
+	for (auto icon : icons)
+	{
+		AddIconToImageList(imageList.get(), iconResourceLoader, icon, iconWidth, iconHeight, imageListMappings);
+	}
+
+	return { std::move(imageList), imageListMappings };
+}
+
+void ResourceHelper::AddIconToImageList(HIMAGELIST imageList, IconResourceLoader *iconResourceLoader, Icon icon,
+	int iconWidth, int iconHeight, IconImageListMapping &imageListMappings)
+{
+	wil::unique_hbitmap bitmap = iconResourceLoader->LoadBitmapFromPNGAndScale(icon, iconWidth, iconHeight);
+	int imagePosition = ImageList_Add(imageList, bitmap.get(), nullptr);
+
+	if (imagePosition == -1)
+	{
+		return;
+	}
+
+	imageListMappings.insert({ icon, imagePosition });
 }

@@ -6,4 +6,4 @@
 
 #include <shlobj.h>
 
-HRESULT	CreateDataObject(FORMATETC *,STGMEDIUM *,IDataObject **,int);
+IDataObject *CreateDataObject(FORMATETC *pFormatEtc, STGMEDIUM *pMedium, int count);

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <wil/resource.h>
 #include <ShObjIdl.h>
 #include <windows.h>
 #include <winioctl.h>
@@ -30,8 +31,8 @@ BOOL			CreateSystemTimeString(const SYSTEMTIME *localSystemTime, TCHAR *szBuffer
 BOOL			CreateFriendlySystemTimeString(const SYSTEMTIME *localSystemTime, TCHAR *szBuffer, size_t cchMax);
 BOOL			GetFileSizeEx(const TCHAR *szFileName, PLARGE_INTEGER lpFileSize);
 BOOL			CompareFileTypes(const TCHAR *pszFile1,const TCHAR *pszFile2);
-HRESULT			BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, DWORD cchMax);
-HRESULT			BuildFileAttributeString(DWORD dwFileAttributes, TCHAR *szOutput, DWORD cchMax);
+HRESULT			BuildFileAttributeString(const TCHAR *lpszFileName, TCHAR *szOutput, size_t cchMax);
+HRESULT			BuildFileAttributeString(DWORD dwFileAttributes, TCHAR *szOutput, size_t cchMax);
 BOOL			GetFileOwner(const TCHAR *szFile,TCHAR *szOwner,size_t cchMax);
 DWORD			GetNumFileHardLinks(const TCHAR *lpszFileName);
 BOOL			ReadImageProperty(const TCHAR *lpszImage, PROPID propId, TCHAR *szProperty, int cchMax);
@@ -52,8 +53,8 @@ BOOL			GetFileNameFromUser(HWND hwnd,TCHAR *FullFileName,UINT cchMax,const TCHAR
 HINSTANCE		StartCommandPrompt(const TCHAR *Directory, bool Elevated);
 void			GetCPUBrandString(char *pszCPUBrand, UINT cchBuf);
 void			SetFORMATETC(FORMATETC *pftc, CLIPFORMAT cfFormat, DVTARGETDEVICE *ptd, DWORD dwAspect, LONG lindex, DWORD tymed);
-BOOL			CopyTextToClipboard(const std::wstring &str);
 bool			IsKeyDown(int nVirtKey);
+std::wstring	CreateGUID();
 
 /* See http://msdn.microsoft.com/en-us/library/windows/desktop/dd940435(v=vs.85).aspx. */
 template <class T> void SafeRelease(T **ppT)

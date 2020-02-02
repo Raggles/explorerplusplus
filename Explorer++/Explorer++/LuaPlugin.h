@@ -8,7 +8,7 @@
 #include "PluginInterface.h"
 #include "PluginMenuManager.h"
 #include "UiTheming.h"
-#include "../ThirdParty/Sol/sol.hpp"
+#include "../ThirdParty/Sol/forward.hpp"
 
 namespace Plugins
 {
@@ -19,7 +19,6 @@ namespace Plugins
 	public:
 
 		LuaPlugin(const std::wstring &directory, const Manifest &manifest, PluginInterface *pluginInterface);
-		~LuaPlugin();
 
 		int GetId() const;
 		std::wstring GetDirectory() const;

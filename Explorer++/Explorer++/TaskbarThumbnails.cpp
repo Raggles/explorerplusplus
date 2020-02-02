@@ -5,8 +5,6 @@
 /*
  * The methods in this file manage the tab proxy windows. A tab
  * proxy is created when a taskbar thumbnail needs to be shown.
- * Note that these thumbnails are only shown on Windows 7 and
- * above.
  */
 
 #include "stdafx.h"
@@ -18,39 +16,27 @@
 #include "../Helper/ProcessHelper.h"
 #include "../Helper/ShellHelper.h"
 #include "../Helper/WindowHelper.h"
+#include <dwmapi.h>
 
 namespace
 {
-	typedef HRESULT (STDAPICALLTYPE *DwmSetWindowAttributeProc)(HWND hwnd,DWORD dwAttribute,LPCVOID pvAttribute,DWORD cbAttribute);
-	typedef HRESULT (STDAPICALLTYPE *DwmSetIconicThumbnailProc)(HWND hwnd,HBITMAP hbmp,DWORD dwSITFlags);
-	typedef HRESULT (STDAPICALLTYPE *DwmSetIconicLivePreviewBitmapProc)(HWND hwnd,HBITMAP hbmp,POINT *pptClient,DWORD dwSITFlags);
-	typedef HRESULT (STDAPICALLTYPE *DwmInvalidateIconicBitmapsProc)(HWND hwnd);
-
 	struct TabProxy_t
 	{
 		TaskbarThumbnails *taskbarThumbnails;
 		int iTabId;
 	};
-
-	/* These definitions are needed to target
-	Windows 7 specific features, while remaining
-	compliant with Vista. They are copied directly
-	from the appropriate header file. */
-	static const UINT WM_DWMSENDICONICTHUMBNAIL = 0x0323;
-	static const UINT WM_DWMSENDICONICLIVEPREVIEWBITMAP = 0x0326;
 }
 
 TaskbarThumbnails *TaskbarThumbnails::Create(IExplorerplusplus *expp, TabContainer *tabContainer,
-	Navigation *navigation, HINSTANCE instance, std::shared_ptr<Config> config)
+	HINSTANCE instance, std::shared_ptr<Config> config)
 {
-	return new TaskbarThumbnails(expp, tabContainer, navigation, instance, config);
+	return new TaskbarThumbnails(expp, tabContainer, instance, config);
 }
 
 TaskbarThumbnails::TaskbarThumbnails(IExplorerplusplus *expp, TabContainer *tabContainer,
-	Navigation *navigation, HINSTANCE instance, std::shared_ptr<Config> config) :
+	HINSTANCE instance, std::shared_ptr<Config> config) :
 	m_expp(expp),
 	m_tabContainer(tabContainer),
-	m_navigation(navigation),
 	m_instance(instance),
 	m_bTaskbarInitialised(false),
 	m_enabled(config->showTaskbarThumbnails),
@@ -59,18 +45,8 @@ TaskbarThumbnails::TaskbarThumbnails(IExplorerplusplus *expp, TabContainer *tabC
 	Initialize();
 }
 
-TaskbarThumbnails::~TaskbarThumbnails()
-{
-
-}
-
 void TaskbarThumbnails::Initialize()
 {
-	if(!IsWindows7OrGreater())
-	{
-		return;
-	}
-
 	if(!m_enabled)
 	{
 		return;
@@ -86,10 +62,9 @@ void TaskbarThumbnails::Initialize()
 	SetWindowSubclass(m_expp->GetMainWindow(),MainWndProcStub,0,reinterpret_cast<DWORD_PTR>(this));
 
 	m_tabContainer->tabCreatedSignal.AddObserver(boost::bind(&TaskbarThumbnails::CreateTabProxy, this, _1, _2));
+	m_tabContainer->tabNavigationCompletedSignal.AddObserver(boost::bind(&TaskbarThumbnails::OnNavigationCompleted, this, _1));
 	m_tabContainer->tabSelectedSignal.AddObserver(boost::bind(&TaskbarThumbnails::OnTabSelectionChanged, this, _1));
 	m_tabContainer->tabRemovedSignal.AddObserver(boost::bind(&TaskbarThumbnails::RemoveTabProxy, this, _1));
-
-	m_navigation->navigationCompletedSignal.AddObserver(boost::bind(&TaskbarThumbnails::OnNavigationCompleted, this, _1));
 }
 
 LRESULT CALLBACK TaskbarThumbnails::MainWndProcStub(HWND hwnd, UINT uMsg,
@@ -129,7 +104,7 @@ LRESULT CALLBACK TaskbarThumbnails::MainWndProc(HWND hwnd,UINT uMsg,WPARAM wPara
 
 			RegisterTab(itr->hProxy,EMPTY_STRING,bActive);
 
-			UpdateTaskbarThumbnailTtitle(tab);
+			UpdateTaskbarThumbnailTitle(tab);
 			SetTabProxyIcon(tab);
 		}
 
@@ -198,13 +173,6 @@ void TaskbarThumbnails::CreateTabProxy(int iTabId,BOOL bSwitchToNewTab)
 	ATOM aRet;
 	BOOL bValue = TRUE;
 
-	/* If we're not running on Windows 7 or later, return without
-	doing anything. */
-	if(!IsWindows7OrGreater())
-	{
-		return;
-	}
-
 	if(!m_enabled)
 	{
 		return;
@@ -230,37 +198,26 @@ void TaskbarThumbnails::CreateTabProxy(int iTabId,BOOL bSwitchToNewTab)
 
 		if(hTabProxy != NULL)
 		{
-			HMODULE hDwmapi;
-			DwmSetWindowAttributeProc DwmSetWindowAttribute;
+			DwmSetWindowAttribute(hTabProxy,DWMWA_FORCE_ICONIC_REPRESENTATION,
+				&bValue,sizeof(BOOL));
 
-			hDwmapi = LoadLibrary(_T("dwmapi.dll"));
+			DwmSetWindowAttribute(hTabProxy,DWMWA_HAS_ICONIC_BITMAP,
+				&bValue,sizeof(BOOL));
 
-			if(hDwmapi != NULL)
+			if(m_bTaskbarInitialised)
 			{
-				DwmSetWindowAttribute = (DwmSetWindowAttributeProc)GetProcAddress(hDwmapi,"DwmSetWindowAttribute");
-
-				if(DwmSetWindowAttribute != NULL)
-				{
-					DwmSetWindowAttribute(hTabProxy,DWMWA_FORCE_ICONIC_REPRESENTATION,
-						&bValue,sizeof(BOOL));
-
-					DwmSetWindowAttribute(hTabProxy,DWMWA_HAS_ICONIC_BITMAP,
-						&bValue,sizeof(BOOL));
-
-					if(m_bTaskbarInitialised)
-					{
-						RegisterTab(hTabProxy,EMPTY_STRING,bSwitchToNewTab);
-					}
-
-					tpi.hProxy		= hTabProxy;
-					tpi.iTabId		= iTabId;
-					tpi.atomClass	= aRet;
-
-					m_TabProxyList.push_back(tpi);
-				}
-
-				FreeLibrary(hDwmapi);
+				RegisterTab(hTabProxy,EMPTY_STRING,bSwitchToNewTab);
 			}
+
+			tpi.hProxy		= hTabProxy;
+			tpi.iTabId		= iTabId;
+			tpi.atomClass	= aRet;
+
+			m_TabProxyList.push_back(std::move(tpi));
+
+			const Tab &tab = m_tabContainer->GetTab(iTabId);
+			SetTabProxyIcon(tab);
+			UpdateTaskbarThumbnailTitle(tab);
 		}
 	}
 }
@@ -274,9 +231,6 @@ void TaskbarThumbnails::RemoveTabProxy(int iTabId)
 			if(itr->iTabId == iTabId)
 			{
 				m_pTaskbarList->UnregisterTab(itr->hProxy);
-
-				HICON hIcon = reinterpret_cast<HICON>(GetClassLongPtr(itr->hProxy, GCLP_HICONSM));
-				DestroyIcon(hIcon);
 
 				TabProxy_t *ptp = reinterpret_cast<TabProxy_t *>(GetWindowLongPtr(itr->hProxy,GWLP_USERDATA));
 				DestroyWindow(itr->hProxy);
@@ -293,26 +247,13 @@ void TaskbarThumbnails::RemoveTabProxy(int iTabId)
 
 void TaskbarThumbnails::InvalidateTaskbarThumbnailBitmap(const Tab &tab)
 {
-	HMODULE hDwmapi = LoadLibrary(_T("dwmapi.dll"));
-
-	if(hDwmapi != NULL)
+	for(auto itr = m_TabProxyList.begin();itr != m_TabProxyList.end();itr++)
 	{
-		DwmInvalidateIconicBitmapsProc DwmInvalidateIconicBitmaps = reinterpret_cast<DwmInvalidateIconicBitmapsProc>(
-			GetProcAddress(hDwmapi,"DwmInvalidateIconicBitmaps"));
-
-		if(DwmInvalidateIconicBitmaps != NULL)
+		if(itr->iTabId == tab.GetId())
 		{
-			for(auto itr = m_TabProxyList.begin();itr != m_TabProxyList.end();itr++)
-			{
-				if(itr->iTabId == tab.GetId())
-				{
-					DwmInvalidateIconicBitmaps(itr->hProxy);
-					break;
-				}
-			}
+			DwmInvalidateIconicBitmaps(itr->hProxy);
+			break;
 		}
-
-		FreeLibrary(hDwmapi);
 	}
 }
 
@@ -354,6 +295,8 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProcStub(HWND hwnd,UINT Msg,WPARA
 
 LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wParam,LPARAM lParam,int iTabId)
 {
+	const Tab *tab = m_tabContainer->GetTabOptional(iTabId);
+
 	switch(Msg)
 	{
 	case WM_ACTIVATE:
@@ -364,12 +307,12 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wP
 			ShowWindow(m_expp->GetMainWindow(),SW_RESTORE);
 		}
 
-		m_tabContainer->SelectTab(m_tabContainer->GetTab(iTabId));
+		m_tabContainer->SelectTab(*tab);
 		return 0;
 		break;
 
 	case WM_SETFOCUS:
-		SetFocus(m_tabContainer->GetTab(iTabId).listView);
+		SetFocus(tab->GetShellBrowser()->GetListView());
 		break;
 
 	case WM_SYSCOMMAND:
@@ -379,7 +322,7 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wP
 			break;
 
 		default:
-			SendMessage(m_tabContainer->GetTab(iTabId).listView,WM_SYSCOMMAND,wParam,lParam);
+			SendMessage(tab->GetShellBrowser()->GetListView(),WM_SYSCOMMAND,wParam,lParam);
 			break;
 		}
 		break;
@@ -391,153 +334,42 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wP
 	3. Shrink the resulting bitmap down to the correct thumbnail size.
 	
 	A thumbnail will be dynamically generated, provided the main window
-	is not currently minimized (as we won't be able to grap a screenshot
+	is not currently minimized (as we won't be able to grab a screenshot
 	of it). If the main window is minimized, we'll use a cached screenshot
 	of the tab (taken before the main window was minimized). */
 	case WM_DWMSENDICONICTHUMBNAIL:
-		{
-			HDC hdc;
-			HDC hdcSrc;
-			HBITMAP hbmTab = NULL;
-			HBITMAP hPrevBitmap;
-			Gdiplus::Color color(0,0,0);
-			HRESULT hr;
-			int iBitmapWidth;
-			int iBitmapHeight;
-			int iWidth;
-			int iHeight;
-			int iMaxWidth;
-			int iMaxHeight;
-
-			iMaxWidth = HIWORD(lParam);
-			iMaxHeight = LOWORD(lParam);
-
-			/* If the main window is minimized, it won't be possible
-			to generate a thumbnail for any of the tabs. In that
-			case, use a static 'No Preview Available' bitmap. */
-			if(IsIconic(m_expp->GetMainWindow()))
-			{
-				hbmTab = (HBITMAP)LoadImage(GetModuleHandle(0),MAKEINTRESOURCE(IDB_NOPREVIEWAVAILABLE),IMAGE_BITMAP,0,0,0);
-
-				SetBitmapDimensionEx(hbmTab,223,130,NULL);
-			}
-			else
-			{
-				hbmTab = CaptureTabScreenshot(iTabId);
-			}
-
-			SIZE sz;
-
-			GetBitmapDimensionEx(hbmTab,&sz);
-
-			iBitmapWidth = sz.cx;
-			iBitmapHeight = sz.cy;
-
-
-			/* Shrink the bitmap. */
-			HDC hdcThumbnailSrc;
-			HBITMAP hbmThumbnail;
-			POINT pt;
-
-			hdc = GetDC(m_expp->GetMainWindow());
-			hdcSrc = CreateCompatibleDC(hdc);
-
-			SelectObject(hdcSrc,hbmTab);
-
-			hdcThumbnailSrc = CreateCompatibleDC(hdc);
-
-			/* If the current height of the main window
-			is less than the width, we'll create a thumbnail
-			of maximum width; else maximum height. */
-			if(((double) iBitmapWidth / (double) iMaxWidth) > ((double) iBitmapHeight / (double) iMaxHeight))
-			{
-				iWidth = iMaxWidth;
-				iHeight = (int) ceil(iMaxWidth * ((double)iBitmapHeight / (double)iBitmapWidth));
-			}
-			else
-			{
-				iHeight = iMaxHeight;
-				iWidth = (int) ceil(iMaxHeight * ((double) iBitmapWidth / (double) iBitmapHeight));
-			}
-
-			/* Thumbnail bitmap. */
-			Gdiplus::Bitmap bmpThumbnail(iWidth,iHeight,PixelFormat32bppARGB);
-
-			bmpThumbnail.GetHBITMAP(color,&hbmThumbnail);
-
-			hPrevBitmap = (HBITMAP)SelectObject(hdcThumbnailSrc,hbmThumbnail);
-
-			/* Finally, shrink the full-scale bitmap down into a thumbnail. */
-			SetStretchBltMode(hdcThumbnailSrc,HALFTONE);
-			SetBrushOrgEx(hdcThumbnailSrc,0,0,&pt);
-			StretchBlt(hdcThumbnailSrc,0,0,iWidth,iHeight,hdcSrc,0,0,iBitmapWidth,iBitmapHeight,SRCCOPY);
-
-			SelectObject(hdcThumbnailSrc,hPrevBitmap);
-			DeleteDC(hdcThumbnailSrc);
-
-			HMODULE hDwmapi;
-			DwmSetIconicThumbnailProc DwmSetIconicThumbnail;
-
-			hDwmapi = LoadLibrary(_T("dwmapi.dll"));
-
-			if(hDwmapi != NULL)
-			{
-				DwmSetIconicThumbnail = (DwmSetIconicThumbnailProc)GetProcAddress(hDwmapi,"DwmSetIconicThumbnail");
-
-				if(DwmSetIconicThumbnail != NULL)
-				{
-					hr = DwmSetIconicThumbnail(hwnd,hbmThumbnail,0);
-				}
-
-				FreeLibrary(hDwmapi);
-			}
-
-			/* Delete the thumbnail bitmap. */
-			DeleteObject(hbmTab);
-			SelectObject(hdcSrc,hPrevBitmap);
-			DeleteObject(hbmThumbnail);
-			DeleteDC(hdcSrc);
-			ReleaseDC(m_expp->GetMainWindow(),hdc);
-
-			return 0;
-		}
+		OnDwmSendIconicThumbnail(hwnd, *tab, HIWORD(lParam), LOWORD(lParam));
+		return 0;
 		break;
 
 	case WM_DWMSENDICONICLIVEPREVIEWBITMAP:
 		{
-			HMODULE hDwmapi;
-			TabPreviewInfo_t tpi;
-
-			DwmSetIconicLivePreviewBitmapProc DwmSetIconicLivePreviewBitmap;
-
-			tpi.hbm = NULL;
-
 			if(IsIconic(m_expp->GetMainWindow()))
 			{
 				/* TODO: Show an image here... */
 			}
 			else
 			{
-				GetTabLivePreviewBitmap(iTabId,&tpi);
-			}
+				wil::unique_hbitmap bitmap = GetTabLivePreviewBitmap(*tab);
 
-			hDwmapi = LoadLibrary(_T("dwmapi.dll"));
+				RECT rcTab;
+				GetClientRect(tab->GetShellBrowser()->GetListView(), &rcTab);
+				MapWindowPoints(tab->GetShellBrowser()->GetListView(), m_expp->GetMainWindow(), reinterpret_cast<LPPOINT>(&rcTab), 2);
 
-			if(hDwmapi != NULL)
-			{
-				DwmSetIconicLivePreviewBitmap = (DwmSetIconicLivePreviewBitmapProc)GetProcAddress(hDwmapi,"DwmSetIconicLivePreviewBitmap");
+				MENUBARINFO mbi;
+				mbi.cbSize = sizeof(mbi);
+				GetMenuBarInfo(m_expp->GetMainWindow(), OBJID_MENU, 0, &mbi);
 
-				if(DwmSetIconicLivePreviewBitmap != NULL)
-				{
-					DwmSetIconicLivePreviewBitmap(hwnd,tpi.hbm,&tpi.ptOrigin,0);
-				}
+				POINT ptOrigin;
 
-				FreeLibrary(hDwmapi);
-			}
+				/* The operating system will automatically draw the main window. Therefore,
+				we'll just shift the tab into it's proper position. */
+				ptOrigin.x = rcTab.left;
 
-			if(tpi.hbm != NULL)
-			{
-				DeleteObject(tpi.hbm);
+				/* Need to include the menu bar in the offset. */
+				ptOrigin.y = rcTab.top + mbi.rcBar.bottom - mbi.rcBar.top;
+
+				DwmSetIconicLivePreviewBitmap(hwnd, bitmap.get(), &ptOrigin, 0);
 			}
 
 			return 0;
@@ -556,8 +388,7 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wP
 			}
 			else
 			{
-				const Tab &tab = m_tabContainer->GetTab(iTabId);
-				m_tabContainer->CloseTab(tab);
+				m_tabContainer->CloseTab(*tab);
 			}
 		}
 		break;
@@ -566,168 +397,172 @@ LRESULT CALLBACK TaskbarThumbnails::TabProxyWndProc(HWND hwnd,UINT Msg,WPARAM wP
 	return DefWindowProc(hwnd,Msg,wParam,lParam);
 }
 
-HBITMAP TaskbarThumbnails::CaptureTabScreenshot(int iTabId)
+void TaskbarThumbnails::OnDwmSendIconicThumbnail(HWND tabProxy, const Tab &tab, int maxWidth, int maxHeight)
 {
-	HDC hdc;
-	HDC hdcSrc;
-	HBITMAP hBitmap;
-	HBITMAP hPrevBitmap;
-	Gdiplus::Color color(0,0,0);
-	RECT rcMain;
-	RECT rcTab;
+	wil::unique_hbitmap hbmTab;
 
-	HWND hTab = m_tabContainer->GetTab(iTabId).listView;
-
-	GetClientRect(m_expp->GetMainWindow(),&rcMain);
-	GetClientRect(hTab,&rcTab);
-
-	/* Main window BitBlt. */
-	hdc = GetDC(m_expp->GetMainWindow());
-	hdcSrc = CreateCompatibleDC(hdc);
-
-	/* Any bitmap sent back to the operating system will need to be in 32-bit
-	ARGB format. */
-	Gdiplus::Bitmap bi(GetRectWidth(&rcMain),GetRectHeight(&rcMain),PixelFormat32bppARGB);
-	bi.GetHBITMAP(color,&hBitmap);
-
-	/* BitBlt the main window into the bitmap. */
-	hPrevBitmap = (HBITMAP)SelectObject(hdcSrc,hBitmap);
-	BitBlt(hdcSrc,0,0,GetRectWidth(&rcMain),GetRectHeight(&rcMain),hdc,0,0,SRCCOPY);
-
-
-	/* Now BitBlt the tab onto the main window. */
-	HDC hdcTab;
-	HDC hdcTabSrc;
-	HBITMAP hbmTab;
-	HBITMAP hbmTabPrev;
-	BOOL bVisible;
-
-	hdcTab = GetDC(hTab);
-	hdcTabSrc = CreateCompatibleDC(hdcTab);
-	hbmTab = CreateCompatibleBitmap(hdcTab,GetRectWidth(&rcTab),GetRectHeight(&rcTab));
-
-	hbmTabPrev = (HBITMAP)SelectObject(hdcTabSrc,hbmTab);
-
-	bVisible = IsWindowVisible(hTab);
-
-	if(!bVisible)
+	/* If the main window is minimized, it won't be possible
+	to generate a thumbnail for any of the tabs. In that
+	case, use a static 'No Preview Available' bitmap. */
+	if (IsIconic(m_expp->GetMainWindow()))
 	{
-		ShowWindow(hTab,SW_SHOW);
+		hbmTab.reset(static_cast<HBITMAP>(LoadImage(GetModuleHandle(0), MAKEINTRESOURCE(IDB_NOPREVIEWAVAILABLE), IMAGE_BITMAP, 0, 0, 0)));
+
+		SetBitmapDimensionEx(hbmTab.get(), 223, 130, NULL);
+	}
+	else
+	{
+		hbmTab = CaptureTabScreenshot(tab);
 	}
 
-	PrintWindow(hTab,hdcTabSrc,PW_CLIENTONLY);
-
-	if(!bVisible)
-	{
-		ShowWindow(hTab,SW_HIDE);
-	}
-
-	MapWindowPoints(hTab, m_expp->GetMainWindow(),(LPPOINT)&rcTab,2);
-	BitBlt(hdcSrc,rcTab.left,rcTab.top,GetRectWidth(&rcTab),GetRectHeight(&rcTab),hdcTabSrc,0,0,SRCCOPY);
-
-	SelectObject(hdcTabSrc,hbmTabPrev);
-	DeleteObject(hbmTab);
-	DeleteDC(hdcTabSrc);
-	ReleaseDC(hTab,hdcTab);
+	SIZE currentSize;
+	GetBitmapDimensionEx(hbmTab.get(), &currentSize);
 
 
 	/* Shrink the bitmap. */
-	HDC hdcThumbnailSrc;
-	HBITMAP hbmThumbnail;
-	POINT pt;
+	wil::unique_hdc_window hdc = wil::GetDC(m_expp->GetMainWindow());
+	wil::unique_hdc hdcSrc(CreateCompatibleDC(hdc.get()));
 
-	hdcThumbnailSrc = CreateCompatibleDC(hdc);
+	auto previousTabBitmap = wil::SelectObject(hdcSrc.get(), hbmTab.get());
 
-	/* Thumbnail bitmap. */
-	Gdiplus::Bitmap bmpThumbnail(GetRectWidth(&rcMain),GetRectHeight(&rcMain),PixelFormat32bppARGB);
+	wil::unique_hdc hdcThumbnailSrc(CreateCompatibleDC(hdc.get()));
 
-	bmpThumbnail.GetHBITMAP(color,&hbmThumbnail);
+	int finalWidth;
+	int finalHeight;
 
-	hPrevBitmap = (HBITMAP)SelectObject(hdcThumbnailSrc,hbmThumbnail);
+	/* If the current height of the main window
+	is less than the width, we'll create a thumbnail
+	of maximum width; else maximum height. */
+	if (((double)currentSize.cx / (double)maxWidth) > ((double)currentSize.cy / (double)maxHeight))
+	{
+		finalWidth = maxWidth;
+		finalHeight = (int)ceil(maxWidth * ((double)currentSize.cy / (double)currentSize.cx));
+	}
+	else
+	{
+		finalHeight = maxHeight;
+		finalWidth = (int)ceil(maxHeight * ((double)currentSize.cx / (double)currentSize.cy));
+	}
+
+	wil::unique_hbitmap hbmThumbnail;
+	Gdiplus::Color color(0, 0, 0);
+	Gdiplus::Bitmap bmpThumbnail(finalWidth, finalHeight, PixelFormat32bppARGB);
+	bmpThumbnail.GetHBITMAP(color, &hbmThumbnail);
+
+	auto previousThumbnailBitmap = wil::SelectObject(hdcThumbnailSrc.get(), hbmThumbnail.get());
 
 	/* Finally, shrink the full-scale bitmap down into a thumbnail. */
-	SetStretchBltMode(hdcThumbnailSrc,HALFTONE);
-	SetBrushOrgEx(hdcThumbnailSrc,0,0,&pt);
-	BitBlt(hdcThumbnailSrc,0,0,GetRectWidth(&rcMain),GetRectHeight(&rcMain),hdcSrc,0,0,SRCCOPY);
+	POINT pt;
+	SetStretchBltMode(hdcThumbnailSrc.get(), HALFTONE);
+	SetBrushOrgEx(hdcThumbnailSrc.get(), 0, 0, &pt);
+	StretchBlt(hdcThumbnailSrc.get(), 0, 0, finalWidth, finalHeight, hdcSrc.get(), 0, 0, currentSize.cx, currentSize.cy, SRCCOPY);
 
-	SetBitmapDimensionEx(hbmThumbnail,GetRectWidth(&rcMain),GetRectHeight(&rcMain),NULL);
+	DwmSetIconicThumbnail(tabProxy, hbmThumbnail.get(), 0);
+}
 
-	SelectObject(hdcThumbnailSrc,hPrevBitmap);
-	DeleteDC(hdcThumbnailSrc);
+wil::unique_hbitmap TaskbarThumbnails::CaptureTabScreenshot(const Tab &tab)
+{
+	wil::unique_hdc_window hdc = wil::GetDC(m_expp->GetMainWindow());
+	wil::unique_hdc hdcSrc(CreateCompatibleDC(hdc.get()));
 
-	DeleteObject(hBitmap);
+	RECT rcMain;
+	GetClientRect(m_expp->GetMainWindow(), &rcMain);
 
-	SelectObject(hdcSrc,hPrevBitmap);
+	/* Any bitmap sent back to the operating system will need to be in 32-bit
+	ARGB format. */
+	wil::unique_hbitmap hBitmap;
+	Gdiplus::Color color(0, 0, 0);
+	Gdiplus::Bitmap bi(GetRectWidth(&rcMain), GetRectHeight(&rcMain), PixelFormat32bppARGB);
+	bi.GetHBITMAP(color, &hBitmap);
 
-	DeleteDC(hdcSrc);
-	ReleaseDC(m_expp->GetMainWindow(),hdc);
+	/* Draw the main window into the bitmap. */
+	auto mainWindowPreviousBitmap = wil::SelectObject(hdcSrc.get(), hBitmap.get());
+	BitBlt(hdcSrc.get(), 0, 0, GetRectWidth(&rcMain), GetRectHeight(&rcMain), hdc.get(), 0, 0, SRCCOPY);
+
+
+	/* Now draw the tab onto the main window. */
+	RECT rcTab;
+	GetClientRect(tab.GetShellBrowser()->GetListView(), &rcTab);
+
+	wil::unique_hdc_window hdcTab = wil::GetDC(tab.GetShellBrowser()->GetListView());
+	wil::unique_hdc hdcTabSrc(CreateCompatibleDC(hdcTab.get()));
+	wil::unique_hbitmap hbmTab(CreateCompatibleBitmap(hdcTab.get(), GetRectWidth(&rcTab), GetRectHeight(&rcTab)));
+
+	auto tabPreviousBitmap = wil::SelectObject(hdcTabSrc.get(), hbmTab.get());
+
+	BOOL bVisible = IsWindowVisible(tab.GetShellBrowser()->GetListView());
+
+	if (!bVisible)
+	{
+		ShowWindow(tab.GetShellBrowser()->GetListView(), SW_SHOW);
+	}
+
+	PrintWindow(tab.GetShellBrowser()->GetListView(), hdcTabSrc.get(), PW_CLIENTONLY);
+
+	if (!bVisible)
+	{
+		ShowWindow(tab.GetShellBrowser()->GetListView(), SW_HIDE);
+	}
+
+	MapWindowPoints(tab.GetShellBrowser()->GetListView(), m_expp->GetMainWindow(), reinterpret_cast<LPPOINT>(&rcTab), 2);
+	BitBlt(hdcSrc.get(), rcTab.left, rcTab.top, GetRectWidth(&rcTab), GetRectHeight(&rcTab), hdcTabSrc.get(), 0, 0, SRCCOPY);
+
+
+	/* Shrink the bitmap. */
+	wil::unique_hdc hdcThumbnailSrc(CreateCompatibleDC(hdc.get()));
+
+	wil::unique_hbitmap hbmThumbnail;
+	Gdiplus::Bitmap bmpThumbnail(GetRectWidth(&rcMain), GetRectHeight(&rcMain), PixelFormat32bppARGB);
+	bmpThumbnail.GetHBITMAP(color, &hbmThumbnail);
+
+	auto thumbnailPreviousBitmap = wil::SelectObject(hdcThumbnailSrc.get(), hbmThumbnail.get());
+
+	/* Finally, shrink the full-scale bitmap down into a thumbnail. */
+	POINT pt;
+	SetStretchBltMode(hdcThumbnailSrc.get(), HALFTONE);
+	SetBrushOrgEx(hdcThumbnailSrc.get(), 0, 0, &pt);
+	BitBlt(hdcThumbnailSrc.get(), 0, 0, GetRectWidth(&rcMain), GetRectHeight(&rcMain), hdcSrc.get(), 0, 0, SRCCOPY);
+
+	SetBitmapDimensionEx(hbmThumbnail.get(), GetRectWidth(&rcMain), GetRectHeight(&rcMain), nullptr);
 
 	return hbmThumbnail;
 }
 
-/* It is up to the caller to delete the bitmap returned by this method. */
-void TaskbarThumbnails::GetTabLivePreviewBitmap(int iTabId,TabPreviewInfo_t *ptpi)
+wil::unique_hbitmap TaskbarThumbnails::GetTabLivePreviewBitmap(const Tab &tab)
 {
-	HDC hdcTab;
-	HDC hdcTabSrc;
-	HBITMAP hbmTab;
-	HBITMAP hbmTabPrev;
-	Gdiplus::Color color(0,0,0);
-	MENUBARINFO mbi;
-	POINT pt;
-	BOOL bVisible;
+	wil::unique_hdc_window hdcTab = wil::GetDC(tab.GetShellBrowser()->GetListView());
+	wil::unique_hdc hdcTabSrc(CreateCompatibleDC(hdcTab.get()));
+
 	RECT rcTab;
+	GetClientRect(tab.GetShellBrowser()->GetListView(), &rcTab);
 
-	HWND hTab = m_tabContainer->GetTab(iTabId).listView;
+	wil::unique_hbitmap hbmTab;
+	Gdiplus::Color color(0, 0, 0);
+	Gdiplus::Bitmap bi(GetRectWidth(&rcTab), GetRectHeight(&rcTab), PixelFormat32bppARGB);
+	bi.GetHBITMAP(color, &hbmTab);
 
-	hdcTab = GetDC(hTab);
-	hdcTabSrc = CreateCompatibleDC(hdcTab);
+	auto tabPreviousBitmap = wil::SelectObject(hdcTabSrc.get(), hbmTab.get());
 
-	GetClientRect(hTab,&rcTab);
+	BOOL bVisible = IsWindowVisible(tab.GetShellBrowser()->GetListView());
 
-	Gdiplus::Bitmap bi(GetRectWidth(&rcTab),GetRectHeight(&rcTab),PixelFormat32bppARGB);
-	bi.GetHBITMAP(color,&hbmTab);
-
-	hbmTabPrev = (HBITMAP)SelectObject(hdcTabSrc,hbmTab);
-
-	bVisible = IsWindowVisible(hTab);
-
-	if(!bVisible)
+	if (!bVisible)
 	{
-		ShowWindow(hTab,SW_SHOW);
+		ShowWindow(tab.GetShellBrowser()->GetListView(), SW_SHOW);
 	}
 
-	PrintWindow(hTab,hdcTabSrc,PW_CLIENTONLY);
+	PrintWindow(tab.GetShellBrowser()->GetListView(), hdcTabSrc.get(), PW_CLIENTONLY);
 
-	if(!bVisible)
+	if (!bVisible)
 	{
-		ShowWindow(hTab,SW_HIDE);
+		ShowWindow(tab.GetShellBrowser()->GetListView(), SW_HIDE);
 	}
 
-	SetStretchBltMode(hdcTabSrc,HALFTONE);
-	SetBrushOrgEx(hdcTabSrc,0,0,&pt);
-	StretchBlt(hdcTabSrc,0,0,GetRectWidth(&rcTab),GetRectHeight(&rcTab),hdcTabSrc,
-		0,0,GetRectWidth(&rcTab),GetRectHeight(&rcTab),SRCCOPY);
+	SetStretchBltMode(hdcTabSrc.get(), HALFTONE);
+	SetBrushOrgEx(hdcTabSrc.get(), 0, 0, nullptr);
+	StretchBlt(hdcTabSrc.get(), 0, 0, GetRectWidth(&rcTab), GetRectHeight(&rcTab), hdcTabSrc.get(),
+		0, 0, GetRectWidth(&rcTab), GetRectHeight(&rcTab), SRCCOPY);
 
-	MapWindowPoints(hTab, m_expp->GetMainWindow(),(LPPOINT)&rcTab,2);
-
-	mbi.cbSize	 = sizeof(mbi);
-	GetMenuBarInfo(m_expp->GetMainWindow(),OBJID_MENU,0,&mbi);
-
-	/* The operating system will automatically
-	draw the main window. Therefore, we'll just shift
-	the tab into it's proper position. */
-	ptpi->ptOrigin.x = rcTab.left;
-
-	/* Need to include the menu bar in the offset. */
-	ptpi->ptOrigin.y = rcTab.top + mbi.rcBar.bottom - mbi.rcBar.top;
-
-	ptpi->hbm = hbmTab;
-	ptpi->iTabId = iTabId;
-
-	SelectObject(hdcTabSrc,hbmTabPrev);
-	DeleteDC(hdcTabSrc);
-	ReleaseDC(hTab,hdcTab);
+	return hbmTab;
 }
 
 void TaskbarThumbnails::OnTabSelectionChanged(const Tab &tab)
@@ -775,10 +610,10 @@ void TaskbarThumbnails::OnNavigationCompleted(const Tab &tab)
 {
 	InvalidateTaskbarThumbnailBitmap(tab);
 	SetTabProxyIcon(tab);
-	UpdateTaskbarThumbnailTtitle(tab);
+	UpdateTaskbarThumbnailTitle(tab);
 }
 
-void TaskbarThumbnails::UpdateTaskbarThumbnailTtitle(const Tab &tab)
+void TaskbarThumbnails::UpdateTaskbarThumbnailTitle(const Tab &tab)
 {
 	if (!m_bTaskbarInitialised)
 	{
@@ -798,11 +633,11 @@ void TaskbarThumbnails::UpdateTaskbarThumbnailTtitle(const Tab &tab)
 
 void TaskbarThumbnails::SetTabProxyIcon(const Tab &tab)
 {
-	for (const TabProxyInfo_t &tabProxyInfo : m_TabProxyList)
+	for (TabProxyInfo_t &tabProxyInfo : m_TabProxyList)
 	{
 		if (tabProxyInfo.iTabId == tab.GetId())
 		{
-			PIDLPointer pidlDirectory(tab.GetShellBrowser()->QueryCurrentDirectoryIdl());
+			auto pidlDirectory = tab.GetShellBrowser()->GetDirectoryIdl();
 
 			/* TODO: The proxy icon may also be the lock icon, if
 			the tab is locked. */
@@ -815,13 +650,9 @@ void TaskbarThumbnails::SetTabProxyIcon(const Tab &tab)
 				return;
 			}
 
-			HICON hIconTemp = (HICON)GetClassLongPtr(tabProxyInfo.hProxy, GCLP_HICONSM);
-			DestroyIcon(hIconTemp);
+			tabProxyInfo.icon.reset(shfi.hIcon);
 
-			hIconTemp = CopyIcon(shfi.hIcon);
-			DestroyIcon(shfi.hIcon);
-
-			SetClassLongPtr(tabProxyInfo.hProxy, GCLP_HICONSM, (LONG_PTR)hIconTemp);
+			SetClassLongPtr(tabProxyInfo.hProxy, GCLP_HICONSM, (LONG_PTR)tabProxyInfo.icon.get());
 			break;
 		}
 	}

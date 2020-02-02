@@ -4,12 +4,13 @@
 
 #pragma once
 
-class CHolderWindow
+#include "../Helper/DpiCompatibility.h"
+
+class HolderWindow
 {
 public:
 
-	CHolderWindow(HWND hHolder);
-	~CHolderWindow();
+	HolderWindow(HWND hHolder);
 
 	LRESULT CALLBACK	HolderWndProc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 
@@ -23,4 +24,6 @@ private:
 
 	HWND	m_hHolder;
 	BOOL	m_bHolderResizing;
+
+	DpiCompatibility m_dpiCompat;
 };

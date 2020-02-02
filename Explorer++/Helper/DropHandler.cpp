@@ -24,7 +24,7 @@ struct HANDLETOMAPPINGS
 
 struct PastedFilesInfo_t
 {
-	CReferenceCount			*pReferenceCount;
+	ReferenceCount			*pReferenceCount;
 
 	HWND					hwnd;
 	std::list<std::wstring>	FullFilenameList;
@@ -55,30 +55,20 @@ WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
 void CreateDropOptionsMenu(HWND hDrop,LPCITEMIDLIST pidlDirectory,IDataObject *pDataObject);
 
 /* Drop formats supported. */
-FORMATETC	CDropHandler::m_ftcHDrop = {CF_HDROP,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcFileDescriptorA = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_FILEDESCRIPTORA),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcFileDescriptorW = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_FILEDESCRIPTORW),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcShellIDList = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_SHELLIDLIST),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcText = {CF_TEXT,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcUnicodeText = {CF_UNICODETEXT,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
-FORMATETC	CDropHandler::m_ftcDIBV5 = {CF_DIBV5,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcHDrop = {CF_HDROP,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcFileDescriptorA = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_FILEDESCRIPTORA),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcFileDescriptorW = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_FILEDESCRIPTORW),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcShellIDList = {(CLIPFORMAT)RegisterClipboardFormat(CFSTR_SHELLIDLIST),NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcText = {CF_TEXT,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcUnicodeText = {CF_UNICODETEXT,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+FORMATETC	DropHandler::m_ftcDIBV5 = {CF_DIBV5,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
 
-CDropHandler::CDropHandler()
+DropHandler *DropHandler::CreateNew()
 {
-	
+	return new DropHandler();
 }
 
-CDropHandler::~CDropHandler()
-{
-	
-}
-
-CDropHandler *CDropHandler::CreateNew()
-{
-	return new CDropHandler();
-}
-
-HRESULT CDropHandler::GetDropFormats(std::list<FORMATETC> &ftcList)
+HRESULT DropHandler::GetDropFormats(std::list<FORMATETC> &ftcList)
 {
 	ftcList.push_back(m_ftcHDrop);
 	ftcList.push_back(m_ftcFileDescriptorA);
@@ -91,8 +81,8 @@ HRESULT CDropHandler::GetDropFormats(std::list<FORMATETC> &ftcList)
 	return S_OK;
 }
 
-void CDropHandler::Drop(IDataObject *pDataObject,DWORD grfKeyState,
-POINTL ptl,DWORD *pdwEffect,HWND hwndDrop,DragTypes_t DragType,
+void DropHandler::Drop(IDataObject *pDataObject,DWORD grfKeyState,
+POINTL ptl,DWORD *pdwEffect,HWND hwndDrop,DragType dragType,
 TCHAR *szDestDirectory,IDropFilesCallback *pDropFilesCallback,
 BOOL bRenameOnCollision)
 {
@@ -101,24 +91,24 @@ BOOL bRenameOnCollision)
 	m_ptl				= ptl;
 	m_dwEffect			= *pdwEffect;
 	m_hwndDrop			= hwndDrop;
-	m_DragType			= DragType;
+	m_DragType			= dragType;
 	m_szDestDirectory	= szDestDirectory;
 	m_pDropFilesCallback	= pDropFilesCallback;
 	m_bRenameOnCollision	= bRenameOnCollision;
 
 	switch(m_DragType)
 	{
-	case DRAG_TYPE_LEFTCLICK:
+	case DragType::LeftClick:
 		HandleLeftClickDrop(m_pDataObject,&m_ptl);
 		break;
 
-	case DRAG_TYPE_RIGHTCLICK:
+	case DragType::RightClick:
 		HandleRightClickDrop();
 		break;
 	}
 }
 
-void CDropHandler::CopyClipboardData(IDataObject *pDataObject,HWND hwndDrop,
+void DropHandler::CopyClipboardData(IDataObject *pDataObject,HWND hwndDrop,
 TCHAR *szDestDirectory,IDropFilesCallback *pDropFilesCallback,
 BOOL bRenameOnCollision)
 {
@@ -134,7 +124,7 @@ BOOL bRenameOnCollision)
 	HandleLeftClickDrop(m_pDataObject,&ptl);
 }
 
-void CDropHandler::HandleLeftClickDrop(IDataObject *pDataObject,POINTL *pptl)
+void DropHandler::HandleLeftClickDrop(IDataObject *pDataObject,POINTL *pptl)
 {
 	FORMATETC ftc;
 	STGMEDIUM stg;
@@ -232,7 +222,7 @@ QueryGetData() that they support a particular drop format,
 even though a corresponding call to GetData() fails.
 Therefore, we'll actually attempt to query the data using
 GetData(). */
-BOOL CDropHandler::CheckDropFormatSupported(IDataObject *pDataObject,FORMATETC *pftc)
+BOOL DropHandler::CheckDropFormatSupported(IDataObject *pDataObject,FORMATETC *pftc)
 {
 	HRESULT hr;
 
@@ -264,7 +254,7 @@ BOOL CDropHandler::CheckDropFormatSupported(IDataObject *pDataObject,FORMATETC *
 	return TRUE;
 }
 
-HRESULT CDropHandler::CopyHDropData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyHDropData(IDataObject *pDataObject,
 	BOOL bPrefferedEffect,DWORD dwEffect)
 {
 	STGMEDIUM stg;
@@ -286,7 +276,7 @@ HRESULT CDropHandler::CopyHDropData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyShellIDListData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyShellIDListData(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	/* Once this function actually
@@ -341,7 +331,7 @@ HRESULT CDropHandler::CopyShellIDListData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyAnsiFileDescriptorData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyAnsiFileDescriptorData(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	STGMEDIUM stg;
@@ -402,7 +392,7 @@ int CopyFileDescriptorAToW(FILEDESCRIPTORW *pfdw, const FILEDESCRIPTORA *pfda)
 	return MultiByteToWideChar(CP_ACP, 0, pfda->cFileName, -1, pfdw->cFileName, SIZEOF_ARRAY(pfdw->cFileName));
 }
 
-HRESULT CDropHandler::CopyUnicodeFileDescriptorData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyUnicodeFileDescriptorData(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	STGMEDIUM stg;
@@ -426,7 +416,7 @@ HRESULT CDropHandler::CopyUnicodeFileDescriptorData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyFileDescriptorData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyFileDescriptorData(IDataObject *pDataObject,
 	FILEGROUPDESCRIPTORW *pfgd,std::list<std::wstring> &PastedFileList)
 {
 	FILETIME *pftCreationTime = NULL;
@@ -677,7 +667,7 @@ HRESULT CDropHandler::CopyFileDescriptorData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyUnicodeTextData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyUnicodeTextData(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	STGMEDIUM stg;
@@ -713,7 +703,7 @@ HRESULT CDropHandler::CopyUnicodeTextData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyAnsiTextData(IDataObject *pDataObject,
+HRESULT DropHandler::CopyAnsiTextData(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	STGMEDIUM stg;
@@ -760,7 +750,7 @@ HRESULT CDropHandler::CopyAnsiTextData(IDataObject *pDataObject,
 	return hr;
 }
 
-HRESULT CDropHandler::CopyDIBV5Data(IDataObject *pDataObject,
+HRESULT DropHandler::CopyDIBV5Data(IDataObject *pDataObject,
 	std::list<std::wstring> &PastedFileList)
 {
 	STGMEDIUM stg;
@@ -857,24 +847,21 @@ HRESULT CDropHandler::CopyDIBV5Data(IDataObject *pDataObject,
 	return hr;
 }
 
-void CDropHandler::HandleRightClickDrop(void)
+void DropHandler::HandleRightClickDrop(void)
 {
-	IShellFolder *pShellFolder = NULL;
-	IDropTarget *pDrop = NULL;
-	LPITEMIDLIST pidlDirectory = NULL;
-	DWORD dwe;
-	HRESULT hr;
-
-	hr = GetIdlFromParsingName(m_szDestDirectory,&pidlDirectory);
+	unique_pidl_absolute pidlDirectory;
+	HRESULT hr = SHParseDisplayName(m_szDestDirectory, nullptr, wil::out_param(pidlDirectory), 0, nullptr);
 
 	if(SUCCEEDED(hr))
 	{
-		hr = BindToIdl(pidlDirectory, IID_PPV_ARGS(&pShellFolder));
+		IShellFolder *pShellFolder = NULL;
+		hr = BindToIdl(pidlDirectory.get(), IID_PPV_ARGS(&pShellFolder));
 
 		if(SUCCEEDED(hr))
 		{
-			dwe = m_dwEffect;
+			DWORD dwe = m_dwEffect;
 
+			IDropTarget *pDrop = NULL;
 			hr = pShellFolder->CreateViewObject(m_hwndDrop, IID_PPV_ARGS(&pDrop));
 
 			if(SUCCEEDED(hr))
@@ -891,8 +878,6 @@ void CDropHandler::HandleRightClickDrop(void)
 
 			pShellFolder->Release();
 		}
-
-		CoTaskMemFree(pidlDirectory);
 	}
 }
 
@@ -907,7 +892,7 @@ Differences between drag and drop/paste:
  - Effect may already be specified on paste.
  - No drop point used when pasting files.
 */
-void CDropHandler::CopyDroppedFiles(const HDROP &hd,BOOL bPreferredEffect,DWORD dwPreferredEffect)
+void DropHandler::CopyDroppedFiles(const HDROP &hd,BOOL bPreferredEffect,DWORD dwPreferredEffect)
 {
 	std::list<std::wstring> CopyFilenameList;
 	std::list<std::wstring> MoveFilenameList;
@@ -973,7 +958,7 @@ void CDropHandler::CopyDroppedFiles(const HDROP &hd,BOOL bPreferredEffect,DWORD 
 	CopyDroppedFilesInternal(MoveFilenameList,FALSE,bRenameOnCollision);
 }
 
-void CDropHandler::CopyDroppedFilesInternal(const std::list<std::wstring> &FullFilenameList,
+void DropHandler::CopyDroppedFilesInternal(const std::list<std::wstring> &FullFilenameList,
 	BOOL bCopy,BOOL bRenameOnCollision)
 {
 	if(FullFilenameList.size() == 0)
@@ -1210,7 +1195,7 @@ BOOL CopyDroppedFilesInternalAsync(PastedFilesInfo_t *ppfi)
 	return bRes;
 }
 
-void CDropHandler::CreateShortcutToDroppedFile(TCHAR *szFullFileName)
+void DropHandler::CreateShortcutToDroppedFile(TCHAR *szFullFileName)
 {
 	TCHAR	szLink[MAX_PATH];
 	TCHAR	szFileName[MAX_PATH];
@@ -1224,7 +1209,7 @@ void CDropHandler::CreateShortcutToDroppedFile(TCHAR *szFullFileName)
 	NFileOperations::CreateLinkToFile(szFullFileName,szLink,EMPTY_STRING);
 }
 
-HRESULT CDropHandler::CopyTextToFile(const TCHAR *pszDestDirectory,
+HRESULT DropHandler::CopyTextToFile(const TCHAR *pszDestDirectory,
 	const WCHAR *pszText,TCHAR *pszFullFileNameOut, size_t outLen)
 {
 	SYSTEMTIME st;
@@ -1286,7 +1271,7 @@ HRESULT CDropHandler::CopyTextToFile(const TCHAR *pszDestDirectory,
 	return hr;
 }
 
-BOOL CDropHandler::CheckItemLocations(int iDroppedItem)
+BOOL DropHandler::CheckItemLocations(int iDroppedItem)
 {
 	FORMATETC	ftc;
 	STGMEDIUM	stg;

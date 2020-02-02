@@ -8,15 +8,14 @@
  */
 
 #include "stdafx.h"
-#include "IShellView.h"
-#include "iShellBrowser_internal.h"
+#include "ShellBrowser.h"
 #include "ViewModes.h"
-#include "../Helper/Helper.h"
-#include "../Helper/ShellHelper.h"
-#include "../Helper/FileOperations.h"
 #include "../Helper/DropHandler.h"
+#include "../Helper/FileOperations.h"
+#include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
+#include "../Helper/ShellHelper.h"
 
 
 /* Scroll definitions. */
@@ -25,7 +24,7 @@
 #define X_SCROLL_AMOUNT	10
 #define Y_SCROLL_AMOUNT	10
 
-HRESULT _stdcall CShellBrowser::DragEnter(IDataObject *pDataObject,
+HRESULT _stdcall ShellBrowser::DragEnter(IDataObject *pDataObject,
 DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 {
 	HRESULT hReturn;
@@ -45,7 +44,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 	else
 	{
 		std::list<FORMATETC> ftcList;
-		CDropHandler::GetDropFormats(ftcList);
+		DropHandler::GetDropFormats(ftcList);
 
 		BOOL bDataAccept = FALSE;
 
@@ -78,9 +77,9 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 	}
 
 	if(grfKeyState & MK_LBUTTON)
-		m_DragType = DRAG_TYPE_LEFTCLICK;
+		m_DragType = DragType::LeftClick;
 	else if(grfKeyState & MK_RBUTTON)
-		m_DragType = DRAG_TYPE_RIGHTCLICK;
+		m_DragType = DragType::RightClick;
 
 	pt.x = ptl.x;
 	pt.y = ptl.y;
@@ -92,7 +91,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 	return hReturn;
 }
 
-HRESULT _stdcall CShellBrowser::DragOver(DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
+HRESULT _stdcall ShellBrowser::DragOver(DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 {
 	RECT	rc;
 	POINT	pt;
@@ -135,13 +134,12 @@ if the files come from different drives,
 whether this operation is classed as a copy
 or move is only based on the location of the
 first file). */
-DWORD CShellBrowser::CheckItemLocations(IDataObject *pDataObject,int iDroppedItem)
+DWORD ShellBrowser::CheckItemLocations(IDataObject *pDataObject,int iDroppedItem)
 {
 	FORMATETC	ftc;
 	STGMEDIUM	stg;
 	DROPFILES	*pdf = NULL;
 	TCHAR		szFullFileName[MAX_PATH];
-	TCHAR		szDestDirectory[MAX_PATH];
 	HRESULT		hr;
 	BOOL		bOnSameDrive = FALSE;
 	int			nDroppedFiles;
@@ -172,13 +170,16 @@ DWORD CShellBrowser::CheckItemLocations(IDataObject *pDataObject,int iDroppedIte
 				/* TODO: Compare against sub-folders? (i.e. path may
 				need to be adjusted if the dragged item is currently
 				over a folder). */
-				QueryCurrentDirectory(SIZEOF_ARRAY(szDestDirectory),
-					szDestDirectory);
+				std::wstring destDirectory = GetDirectory();
 
-				if(PathIsSameRoot(szDestDirectory,szFullFileName))
+				if (PathIsSameRoot(destDirectory.c_str(), szFullFileName))
+				{
 					bOnSameDrive = TRUE;
+				}
 				else
+				{
 					bOnSameDrive = FALSE;
+				}
 			}
 
 			GlobalUnlock(stg.hGlobal);
@@ -223,7 +224,7 @@ These are handled by:
 3. DragOver()
 4. DragLeave()
 */
-void CShellBrowser::HandleDragSelection(const POINT *ppt)
+void ShellBrowser::HandleDragSelection(const POINT *ppt)
 {
 	LVHITTESTINFO	info;
 	BOOL			bClash = FALSE;
@@ -323,7 +324,7 @@ void CShellBrowser::HandleDragSelection(const POINT *ppt)
 	}
 }
 
-HRESULT _stdcall CShellBrowser::DragLeave(void)
+HRESULT _stdcall ShellBrowser::DragLeave(void)
 {
 	m_pDropTargetHelper->DragLeave();
 
@@ -340,7 +341,7 @@ HRESULT _stdcall CShellBrowser::DragLeave(void)
 	return S_OK;
 }
 
-void CShellBrowser::OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt)
+void ShellBrowser::OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt)
 {
 	DroppedFile_t DroppedFile;
 	POINT ptOrigin;
@@ -387,14 +388,13 @@ If Ctrl is held down, then the operation is a copy.
 If no modifiers are held down and the source and destination are on the same drive, then the operation is a move. 
 If no modifiers are held down and the source and destination are on different drives, then the operation is a copy.
 */
-HRESULT _stdcall CShellBrowser::Drop(IDataObject *pDataObject,
+HRESULT _stdcall ShellBrowser::Drop(IDataObject *pDataObject,
 DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 {
 	FORMATETC		ftcHDrop = {CF_HDROP,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
 	STGMEDIUM		stg;
 	DROPFILES		*pdf = NULL;
 	POINT			pt;
-	TCHAR			szDestDirectory[MAX_PATH + 1];
 	HRESULT			hr;
 	DWORD			dwEffect;
 	int				nDroppedFiles;
@@ -416,8 +416,10 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 	pt.x = ptl.x;
 	pt.y = ptl.y;
 
-	QueryCurrentDirectory(SIZEOF_ARRAY(szDestDirectory),
-		szDestDirectory);
+	std::wstring destDirectory = GetDirectory();
+
+	TCHAR finalDestDirectory[MAX_PATH];
+	StringCchCopy(finalDestDirectory, std::size(finalDestDirectory), destDirectory.c_str());
 
 	/* If the item(s) have been dropped over a folder in the
 	listview, append the folders name onto the destination path. */
@@ -430,16 +432,14 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 		lvItem.iSubItem	= 0;
 		ListView_GetItem(m_hListView,&lvItem);
 
-		PathAppend(szDestDirectory,m_itemInfoMap.at((int)lvItem.lParam).wfd.cFileName);
+		PathAppend(finalDestDirectory, m_itemInfoMap.at((int)lvItem.lParam).wfd.cFileName);
 	}
-
-	szDestDirectory[lstrlen(szDestDirectory) + 1] = '\0';
 
 	if(m_bDataAccept)
 	{
 		BOOL bHandled = FALSE;
 
-		if(m_DragType == DRAG_TYPE_LEFTCLICK && m_bDragging && !m_bOverFolder)
+		if(m_DragType == DragType::LeftClick && m_bDragging && !m_bOverFolder)
 		{
 			hr = pDataObject->GetData(&ftcHDrop,&stg);
 
@@ -472,7 +472,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 
 		if(!bHandled)
 		{
-			CDropHandler *pDropHandler = CDropHandler::CreateNew();
+			DropHandler *pDropHandler = DropHandler::CreateNew();
 
 			/* The drop handler will call Release(), so we
 			need to AddRef() here. In the future, this should
@@ -481,7 +481,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 
 			pDropHandler->Drop(pDataObject,
 				grfKeyState,ptl,pdwEffect,m_hListView,
-				m_DragType,szDestDirectory,this,FALSE);
+				m_DragType,finalDestDirectory,this,FALSE);
 
 			/* When dragging and dropping, any dropped items
 			will be selected, while any previously selected
@@ -515,17 +515,17 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 /* TODO: This isn't declared. */
 int CALLBACK SortTemporaryStub(LPARAM lParam1,LPARAM lParam2,LPARAM lParamSort)
 {
-	CShellBrowser *pShellBrowser = reinterpret_cast<CShellBrowser *>(lParamSort);
+	ShellBrowser *pShellBrowser = reinterpret_cast<ShellBrowser *>(lParamSort);
 	return pShellBrowser->SortTemporary(lParam1,lParam2);
 }
 
-int CALLBACK CShellBrowser::SortTemporary(LPARAM lParam1,LPARAM lParam2)
+int CALLBACK ShellBrowser::SortTemporary(LPARAM lParam1,LPARAM lParam2)
 {
 	return m_itemInfoMap.at(static_cast<int>(lParam1)).iRelativeSort -
 		m_itemInfoMap.at(static_cast<int>(lParam2)).iRelativeSort;
 }
 
-void CShellBrowser::RepositionLocalFiles(const POINT *ppt)
+void ShellBrowser::RepositionLocalFiles(const POINT *ppt)
 {
 	std::list<DraggedFile_t>::iterator	itr;
 	POINT							pt;
@@ -750,7 +750,7 @@ void CShellBrowser::RepositionLocalFiles(const POINT *ppt)
 	m_bPerformingDrag = FALSE;
 }
 
-void CShellBrowser::ScrollListViewFromCursor(HWND hListView, const POINT *CursorPos)
+void ShellBrowser::ScrollListViewFromCursor(HWND hListView, const POINT *CursorPos)
 {
 	RECT		rc;
 	LONG_PTR	fStyle;

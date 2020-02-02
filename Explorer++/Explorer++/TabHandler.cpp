@@ -6,10 +6,10 @@
 #include "Explorer++.h"
 #include "Config.h"
 #include "LoadSaveInterface.h"
-#include "MainImages.h"
 #include "MainResource.h"
+#include "MenuRanges.h"
 #include "RenameTabDialog.h"
-#include "ShellBrowser/iShellView.h"
+#include "ShellBrowser/ShellBrowser.h"
 #include "ShellBrowser/SortModes.h"
 #include "TabContainer.h"
 #include "../Helper/Helper.h"
@@ -24,6 +24,8 @@
 #include <algorithm>
 #include <list>
 
+static const UINT TAB_WINDOW_HEIGHT_96DPI = 24;
+
 extern std::vector<std::wstring> g_commandLineDirectories;
 
 void Explorerplusplus::InitializeTabs()
@@ -31,12 +33,33 @@ void Explorerplusplus::InitializeTabs()
 	/* The tab backing will hold the tab window. */
 	CreateTabBacking();
 
-	m_tabContainer = TabContainer::Create(m_hTabBacking, this, this, m_navigation, this, m_hLanguageModule, m_config);
+	m_tabContainer = TabContainer::Create(m_hTabBacking, this, m_navigation.get(), this,
+		&m_cachedIcons, &m_bookmarkTree, m_hLanguageModule, m_config);
+	m_tabContainer->tabCreatedSignal.AddObserver(boost::bind(&Explorerplusplus::OnTabCreated, this, _1, _2), boost::signals2::at_front);
+	m_tabContainer->tabNavigationCompletedSignal.AddObserver(boost::bind(&Explorerplusplus::OnNavigationCompleted, this, _1), boost::signals2::at_front);
 	m_tabContainer->tabSelectedSignal.AddObserver(boost::bind(&Explorerplusplus::OnTabSelected, this, _1), boost::signals2::at_front);
 
-	m_navigation->navigationCompletedSignal.AddObserver(boost::bind(&Explorerplusplus::OnNavigationCompleted, this, _1), boost::signals2::at_front);
+	m_tabContainer->tabListViewSelectionChanged.AddObserver(boost::bind(&Explorerplusplus::OnTabListViewSelectionChanged, this, _1), boost::signals2::at_front);
+
+	UINT dpi = m_dpiCompat.GetDpiForWindow(m_tabContainer->GetHWND());
+	int tabWindowHeight = MulDiv(TAB_WINDOW_HEIGHT_96DPI, dpi, USER_DEFAULT_SCREEN_DPI);
+	SetWindowPos(m_tabContainer->GetHWND(), nullptr, 0, 0, 0, tabWindowHeight, SWP_NOMOVE | SWP_NOZORDER);
+
+	m_tabRestorer = std::make_unique<TabRestorer>(m_tabContainer);
+	m_tabRestorerUI = std::make_unique<TabRestorerUI>(m_hLanguageModule, this, m_tabRestorer.get(),
+		MENU_RECENT_TABS_STARTID, MENU_RECENT_TABS_ENDID);
 
 	m_tabsInitializedSignal();
+}
+
+void Explorerplusplus::OnTabCreated(int tabId, BOOL switchToNewTab)
+{
+	UNREFERENCED_PARAMETER(switchToNewTab);
+
+	const Tab &tab = m_tabContainer->GetTab(tabId);
+
+	/* TODO: This subclass needs to be removed. */
+	SetWindowSubclass(tab.GetShellBrowser()->GetListView(), ListViewProcStub, 0, reinterpret_cast<DWORD_PTR>(this));
 }
 
 boost::signals2::connection Explorerplusplus::AddTabsInitializedObserver(const TabsInitializedSignal::slot_type &observer)
@@ -48,61 +71,40 @@ void Explorerplusplus::OnNavigationCompleted(const Tab &tab)
 {
 	if (m_tabContainer->IsTabSelected(tab))
 	{
-		tab.GetShellBrowser()->QueryCurrentDirectory(SIZEOF_ARRAY(m_CurrentDirectory),
-			m_CurrentDirectory);
-		SetCurrentDirectory(m_CurrentDirectory);
+		m_CurrentDirectory = tab.GetShellBrowser()->GetDirectory();
+		SetCurrentDirectory(m_CurrentDirectory.c_str());
 
-		UpdateArrangeMenuItems();
-
-		m_nSelected = 0;
-
-		UpdateWindowStates();
+		UpdateSortMenuItems(tab);
+		UpdateWindowStates(tab);
 	}
 
 	HandleDirectoryMonitoring(tab.GetId());
 }
 
-/*
-* Creates a new tab. If a folder is selected,
-* that folder is opened in a new tab, else
-* the default directory is opened.
-*/
-void Explorerplusplus::OnNewTab()
+/* Creates a new tab. If a folder is selected, that folder is opened in a new
+ * tab, else the default directory is opened. */
+HRESULT Explorerplusplus::OnNewTab()
 {
-	int		iSelected;
-	HRESULT	hr;
-	BOOL	bFolderSelected = FALSE;
-
-	iSelected = ListView_GetNextItem(m_hActiveListView,
+	const Tab &selectedTab = m_tabContainer->GetSelectedTab();
+	int selectionIndex = ListView_GetNextItem(selectedTab.GetShellBrowser()->GetListView(),
 		-1, LVNI_FOCUSED | LVNI_SELECTED);
 
-	if(iSelected != -1)
+	if(selectionIndex != -1)
 	{
-		TCHAR FullItemPath[MAX_PATH];
+		auto fileFindData = selectedTab.GetShellBrowser()->GetItemFileFindData(selectionIndex);
 
-		/* An item is selected, so get its full pathname. */
-		m_pActiveShellBrowser->QueryFullItemName(iSelected, FullItemPath, SIZEOF_ARRAY(FullItemPath));
-
-		/* If the selected item is a folder, open that folder
-		in a new tab, else just use the default new tab directory. */
-		if(PathIsDirectory(FullItemPath))
+		/* If the selected item is a folder, open that folder in a new tab, else
+		 * just use the default new tab directory. */
+		if(WI_IsFlagSet(fileFindData.dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY))
 		{
-			bFolderSelected = TRUE;
-			m_tabContainer->CreateNewTab(FullItemPath, TabSettings(_selected = true));
+			auto pidl = selectedTab.GetShellBrowser()->GetItemCompleteIdl(selectionIndex);
+			return m_tabContainer->CreateNewTab(pidl.get(), TabSettings(_selected = true));
 		}
 	}
 
-	/* Either no items are selected, or the focused + selected
-	item was not a folder; open the default tab directory. */
-	if(!bFolderSelected)
-	{
-		hr = m_tabContainer->CreateNewTab(m_config->defaultTabDirectory.c_str(), TabSettings(_selected = true));
-
-		if (FAILED(hr))
-		{
-			m_tabContainer->CreateNewTab(m_config->defaultTabDirectoryStatic.c_str(), TabSettings(_selected = true));
-		}
-	}
+	/* Either no items are selected, or the focused + selected item was not a
+	 * folder; open the default tab directory. */
+	return m_tabContainer->CreateNewTabInDefaultDirectory(TabSettings(_selected = true));
 }
 
 HRESULT Explorerplusplus::RestoreTabs(ILoadSave *pLoadSave)
@@ -143,10 +145,7 @@ HRESULT Explorerplusplus::RestoreTabs(ILoadSave *pLoadSave)
 
 	if(nTabsCreated == 0)
 	{
-		hr = m_tabContainer->CreateNewTab(m_config->defaultTabDirectory.c_str(), TabSettings(_selected = true));
-
-		if(FAILED(hr))
-			hr = m_tabContainer->CreateNewTab(m_config->defaultTabDirectoryStatic.c_str(), TabSettings(_selected = true));
+		hr = m_tabContainer->CreateNewTabInDefaultDirectory(TabSettings(_selected = true));
 
 		if(hr == S_OK)
 		{
@@ -158,17 +157,6 @@ HRESULT Explorerplusplus::RestoreTabs(ILoadSave *pLoadSave)
 	{
 		/* Should never end up here. */
 		return E_FAIL;
-	}
-
-	/* Tabs created on startup will NOT have
-	any automatic updates. The only thing that
-	needs to be done is to monitor each
-	directory. The tab that is finally switched
-	to will have an associated update of window
-	states. */
-	for (auto &tab : m_tabContainer->GetAllTabs() | boost::adaptors::map_values)
-	{
-		HandleDirectoryMonitoring(tab.GetId());
 	}
 
 	if(!m_config->alwaysShowTabBar.get())
@@ -199,23 +187,18 @@ void Explorerplusplus::OnTabSelected(const Tab &tab)
 	/* Hide the old listview. */
 	ShowWindow(m_hActiveListView,SW_HIDE);
 
-	m_hActiveListView = tab.listView;
+	m_hActiveListView = tab.GetShellBrowser()->GetListView();
 	m_pActiveShellBrowser = tab.GetShellBrowser();
 
 	/* The selected tab has changed, so update the current
 	directory. Although this is not needed internally, context
 	menu extensions may need the current directory to be
 	set correctly. */
-	m_pActiveShellBrowser->QueryCurrentDirectory(SIZEOF_ARRAY(m_CurrentDirectory),
-		m_CurrentDirectory);
-	SetCurrentDirectory(m_CurrentDirectory);
+	m_CurrentDirectory = tab.GetShellBrowser()->GetDirectory();
+	SetCurrentDirectory(m_CurrentDirectory.c_str());
 
-	m_nSelected = m_pActiveShellBrowser->GetNumSelected();
-
-	SetActiveArrangeMenuItems();
-	UpdateArrangeMenuItems();
-
-	UpdateWindowStates();
+	UpdateSortMenuItems(tab);
+	UpdateWindowStates(tab);
 
 	/* Show the new listview. */
 	ShowWindow(m_hActiveListView,SW_SHOW);
@@ -260,14 +243,27 @@ void Explorerplusplus::HideTabBar()
 	UpdateLayout();
 }
 
-HRESULT Explorerplusplus::RefreshTab(const Tab &tab)
+HRESULT Explorerplusplus::CreateNewTab(PCIDLIST_ABSOLUTE pidlDirectory, bool selected)
 {
-	HRESULT hr = tab.GetShellBrowser()->Refresh();
+	return m_tabContainer->CreateNewTab(pidlDirectory, TabSettings(_selected = selected));
+}
 
-	if (SUCCEEDED(hr))
+void Explorerplusplus::OnTabListViewSelectionChanged(const Tab &tab)
+{
+	/* The selection for this tab has changed, so invalidate any
+	folder size calculations that are occurring for this tab
+	(applies only to folder sizes that will be shown in the display
+	window). */
+	for (auto &item : m_DWFolderSizes)
 	{
-		OnNavigationCompleted(tab);
+		if (item.iTabId == tab.GetId())
+		{
+			item.bValid = FALSE;
+		}
 	}
 
-	return hr;
+	if (m_tabContainer->IsTabSelected(tab))
+	{
+		SetTimer(m_hContainer, LISTVIEW_ITEM_CHANGED_TIMER_ID, LISTVIEW_ITEM_CHANGED_TIMEOUT, nullptr);
+	}
 }

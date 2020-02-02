@@ -5,18 +5,18 @@
 #include "stdafx.h"
 #include "ListViewEdit.h"
 #include "Explorer++_internal.h"
-#include "ShellBrowser/iShellView.h"
+#include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 
-CListViewEdit *CListViewEdit::CreateNew(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp)
+ListViewEdit *ListViewEdit::CreateNew(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp)
 {
-	return new CListViewEdit(hwnd,ItemIndex,pexpp);
+	return new ListViewEdit(hwnd,ItemIndex,pexpp);
 }
 
-CListViewEdit::CListViewEdit(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp) :
-CBaseWindow(hwnd),
+ListViewEdit::ListViewEdit(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp) :
+BaseWindow(hwnd),
 m_ItemIndex(ItemIndex),
 m_pexpp(pexpp),
 m_RenameStage(RENAME_FILENAME),
@@ -25,12 +25,7 @@ m_BeginRename(true)
 	
 }
 
-CListViewEdit::~CListViewEdit()
-{
-	
-}
-
-void CListViewEdit::OnEMSetSel(WPARAM &wParam,LPARAM &lParam)
+void ListViewEdit::OnEMSetSel(WPARAM &wParam,LPARAM &lParam)
 {
 	/* When editing an item, the listview control
 	will first deselect, then select all text. If
@@ -54,7 +49,7 @@ void CListViewEdit::OnEMSetSel(WPARAM &wParam,LPARAM &lParam)
 	}
 }
 
-INT_PTR CListViewEdit::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
+INT_PTR ListViewEdit::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -138,12 +133,12 @@ INT_PTR CListViewEdit::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-int CListViewEdit::GetExtensionIndex()
+int ListViewEdit::GetExtensionIndex()
 {
 	TCHAR szFileName[MAX_PATH];
 	GetWindowText(m_hwnd,szFileName,SIZEOF_ARRAY(szFileName));
 
-	DWORD dwAttributes = m_pexpp->GetActiveShellBrowser()->QueryFileAttributes(m_ItemIndex);
+	DWORD dwAttributes = m_pexpp->GetActiveShellBrowser()->GetItemFileFindData(m_ItemIndex).dwFileAttributes;
 
 	int Index = -1;
 

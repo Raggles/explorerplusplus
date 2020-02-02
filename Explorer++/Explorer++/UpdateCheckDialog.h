@@ -8,36 +8,30 @@
 #include "../Helper/DialogSettings.h"
 #include "../Helper/Macros.h"
 
-class CUpdateCheckDialog;
+class UpdateCheckDialog;
 
-class CUpdateCheckDialogPersistentSettings : public CDialogSettings
+class UpdateCheckDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CUpdateCheckDialogPersistentSettings();
-
-	static CUpdateCheckDialogPersistentSettings &GetInstance();
+	static UpdateCheckDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CUpdateCheckDialog;
+	friend UpdateCheckDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
-	CUpdateCheckDialogPersistentSettings();
+	UpdateCheckDialogPersistentSettings();
 
-	DISALLOW_COPY_AND_ASSIGN(CUpdateCheckDialogPersistentSettings);
+	DISALLOW_COPY_AND_ASSIGN(UpdateCheckDialogPersistentSettings);
 };
 
-class CUpdateCheckDialog : public CBaseDialog
+class UpdateCheckDialog : public BaseDialog
 {
-	friend DWORD WINAPI	UpdateCheckThread(LPVOID pParam);
-	friend void			PerformUpdateCheck(HWND hDlg);
-
 public:
 
-	CUpdateCheckDialog(HINSTANCE hInstance,int iResource,HWND hParent);
-	~CUpdateCheckDialog();
+	UpdateCheckDialog(HINSTANCE hInstance, HWND hParent);
 
 protected:
 
@@ -71,10 +65,13 @@ private:
 
 	static const TCHAR VERSION_FILE_URL[];
 
+	static DWORD WINAPI	UpdateCheckThread(LPVOID pParam);
+	static void			PerformUpdateCheck(HWND hDlg);
+
 	void OnUpdateCheckError();
 	void OnUpdateCheckSuccess(Version_t *Version);
 
 	bool m_UpdateCheckComplete;
 
-	CUpdateCheckDialogPersistentSettings	*m_pucdps;
+	UpdateCheckDialogPersistentSettings	*m_pucdps;
 };

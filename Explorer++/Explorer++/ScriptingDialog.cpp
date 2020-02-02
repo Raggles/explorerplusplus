@@ -10,17 +10,11 @@
 #include "../Helper/WindowHelper.h"
 #include <boost/algorithm/string.hpp>
 
-ScriptingDialog::ScriptingDialog(HINSTANCE hInstance, int iResource, HWND hParent,
-	PluginInterface *pluginInterface) :
-	CBaseDialog(hInstance, iResource, hParent, true),
+ScriptingDialog::ScriptingDialog(HINSTANCE hInstance, HWND hParent, PluginInterface *pluginInterface) :
+	BaseDialog(hInstance, IDD_SCRIPTING, hParent, true),
 	m_luaPlugin(L"", Plugins::Manifest(), pluginInterface)
 {
 	m_luaPlugin.GetLuaState().open_libraries(sol::lib::base);
-}
-
-ScriptingDialog::~ScriptingDialog()
-{
-
 }
 
 INT_PTR ScriptingDialog::OnInitDialog()
@@ -31,41 +25,41 @@ INT_PTR ScriptingDialog::OnInitDialog()
 	return FALSE;
 }
 
-void ScriptingDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+void ScriptingDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
 
-	CResizableDialog::Control_t Control;
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_LOG;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COMMAND;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COMMAND;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_STATIC_COMMAND_LABEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = ID_RUN;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 

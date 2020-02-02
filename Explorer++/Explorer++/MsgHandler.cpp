@@ -16,6 +16,7 @@
 #include "ShellBrowser/ViewModes.h"
 #include "ToolbarButtons.h"
 #include "ViewModeHelper.h"
+#include "../Helper/BulkClipboardWriter.h"
 #include "../Helper/Controls.h"
 #include "../Helper/iDirectoryMonitor.h"
 #include "../Helper/Logging.h"
@@ -31,38 +32,14 @@
 amount on the left. */
 static const int TREEVIEW_X_CLEARANCE = 1;
 
-/* The offset from the top of the parent
-window to the treeview. */
-static const int TREEVIEW_Y_CLEARANCE = 20;
-
 /* The spacing between the right edge of
 the treeview and the holder window. */
 static const int TREEVIEW_HOLDER_CLEARANCE = 4;
 
-/* Width and height of the toolbar on
-the folders pane. */
-static const int FOLDERS_TOOLBAR_WIDTH = 16;
-static const int FOLDERS_TOOLBAR_HEIGHT = 16;
-
-static const int FOLDERS_TOOLBAR_X_OFFSET = -20;
-static const int FOLDERS_TOOLBAR_Y_OFFSET = 3;
-
-static const int TAB_TOOLBAR_X_OFFSET = -20;
-static const int TAB_TOOLBAR_Y_OFFSET = 5;
-
-/* Width and height of the toolbar that
-appears on the tab control. */
-static const int TAB_TOOLBAR_WIDTH = 20;
-static const int TAB_TOOLBAR_HEIGHT = 20;
-
-void CALLBACK UninitializeCOMAPC(ULONG_PTR dwParam);
-
-void CALLBACK UninitializeCOMAPC(ULONG_PTR dwParam)
-{
-	UNREFERENCED_PARAMETER(dwParam);
-
-	CoUninitialize();
-}
+const int CLOSE_TOOLBAR_WIDTH = 24;
+const int CLOSE_TOOLBAR_HEIGHT = 24;
+const int CLOSE_TOOLBAR_X_OFFSET = 4;
+const int CLOSE_TOOLBAR_Y_OFFSET = 1;
 
 void Explorerplusplus::TestConfigFile(void)
 {
@@ -110,7 +87,7 @@ void Explorerplusplus::LoadAllSettings(ILoadSave **pLoadSave)
 	methods to be different. */
 	if(m_bLoadSettingsFromXML)
 	{
-		*pLoadSave = new CLoadSaveXML(this,TRUE);
+		*pLoadSave = new LoadSaveXML(this,TRUE);
 
 		/* When loading from the config file, also
 		set the option to save back to it on exit. */
@@ -118,7 +95,7 @@ void Explorerplusplus::LoadAllSettings(ILoadSave **pLoadSave)
 	}
 	else
 	{
-		*pLoadSave = new CLoadSaveRegistry(this);
+		*pLoadSave = new LoadSaveRegistry(this);
 	}
 
 	(*pLoadSave)->LoadBookmarks();
@@ -134,40 +111,32 @@ void Explorerplusplus::LoadAllSettings(ILoadSave **pLoadSave)
 
 void Explorerplusplus::OpenItem(const TCHAR *szItem,BOOL bOpenInNewTab,BOOL bOpenInNewWindow)
 {
-	LPITEMIDLIST	pidlItem = NULL;
-	HRESULT			hr;
-
-	hr = GetIdlFromParsingName(szItem,&pidlItem);
+	unique_pidl_absolute pidlItem;
+	HRESULT hr = SHParseDisplayName(szItem, nullptr, wil::out_param(pidlItem), 0, nullptr);
 
 	if(SUCCEEDED(hr))
 	{
-		OpenItem(pidlItem,bOpenInNewTab,bOpenInNewWindow);
-
-		CoTaskMemFree(pidlItem);
+		OpenItem(pidlItem.get(),bOpenInNewTab,bOpenInNewWindow);
 	}
 }
 
-void Explorerplusplus::OpenItem(LPCITEMIDLIST pidlItem,BOOL bOpenInNewTab,BOOL bOpenInNewWindow)
+void Explorerplusplus::OpenItem(PCIDLIST_ABSOLUTE pidlItem, BOOL bOpenInNewTab, BOOL bOpenInNewWindow)
 {
-	SFGAOF uAttributes = SFGAO_FOLDER|SFGAO_STREAM|SFGAO_LINK;
-	LPITEMIDLIST pidlControlPanel = NULL;
-	HRESULT	hr;
 	BOOL bControlPanelParent = FALSE;
 
-	hr = SHGetFolderLocation(NULL,CSIDL_CONTROLS,NULL,0,&pidlControlPanel);
+	unique_pidl_absolute pidlControlPanel;
+	HRESULT hr = SHGetFolderLocation(NULL,CSIDL_CONTROLS,NULL,0,wil::out_param(pidlControlPanel));
 
 	if(SUCCEEDED(hr))
 	{
 		/* Check if the parent of the item is the control panel.
 		If it is, pass it to the shell to open, rather than
 		opening it in-place. */
-		if(ILIsParent(pidlControlPanel,pidlItem,FALSE) &&
-			!CompareIdls(pidlControlPanel,pidlItem))
+		if(ILIsParent(pidlControlPanel.get(),pidlItem,FALSE) &&
+			!CompareIdls(pidlControlPanel.get(),pidlItem))
 		{
 			bControlPanelParent = TRUE;
 		}
-
-		CoTaskMemFree(pidlControlPanel);
 	}
 
 	/* On Vista and later, the Control Panel was split into
@@ -190,23 +159,23 @@ void Explorerplusplus::OpenItem(LPCITEMIDLIST pidlItem,BOOL bOpenInNewTab,BOOL b
 	*/
 	if (!bControlPanelParent)
 	{
-		hr = GetIdlFromParsingName(CONTROL_PANEL_CATEGORY_VIEW, &pidlControlPanel);
+		unique_pidl_absolute pidlControlPanelCategoryView;
+		hr = SHParseDisplayName(CONTROL_PANEL_CATEGORY_VIEW, nullptr, wil::out_param(pidlControlPanelCategoryView), 0, nullptr);
 
 		if (SUCCEEDED(hr))
 		{
 			/* Check if the parent of the item is the control panel.
 			If it is, pass it to the shell to open, rather than
 			opening it in-place. */
-			if (ILIsParent(pidlControlPanel, pidlItem, FALSE) &&
-				!CompareIdls(pidlControlPanel, pidlItem))
+			if (ILIsParent(pidlControlPanelCategoryView.get(), pidlItem, FALSE) &&
+				!CompareIdls(pidlControlPanelCategoryView.get(), pidlItem))
 			{
 				bControlPanelParent = TRUE;
 			}
-
-			CoTaskMemFree(pidlControlPanel);
 		}
 	}
 
+	SFGAOF uAttributes = SFGAO_FOLDER | SFGAO_STREAM | SFGAO_LINK;
 	hr = GetItemAttributes(pidlItem,&uAttributes);
 
 	if(SUCCEEDED(hr))
@@ -258,15 +227,12 @@ void Explorerplusplus::OpenItem(LPCITEMIDLIST pidlItem,BOOL bOpenInNewTab,BOOL b
 					if(((uAttributes & SFGAO_FOLDER) && !(uAttributes & SFGAO_STREAM)) ||
 						((uAttributes & SFGAO_FOLDER) && (uAttributes & SFGAO_STREAM) && m_config->handleZipFiles))
 					{
-						LPITEMIDLIST	pidlTarget = NULL;
-
-						hr = GetIdlFromParsingName(szTargetPath,&pidlTarget);
+						unique_pidl_absolute pidlTarget;
+						hr = SHParseDisplayName(szTargetPath, nullptr, wil::out_param(pidlTarget), 0, nullptr);
 
 						if(SUCCEEDED(hr))
 						{
-							OpenFolderItem(pidlTarget,bOpenInNewTab,bOpenInNewWindow);
-
-							CoTaskMemFree(pidlTarget);
+							OpenFolderItem(pidlTarget.get(),bOpenInNewTab,bOpenInNewWindow);
 						}
 					}
 					else
@@ -314,30 +280,25 @@ void Explorerplusplus::OpenItem(LPCITEMIDLIST pidlItem,BOOL bOpenInNewTab,BOOL b
 	}
 }
 
-void Explorerplusplus::OpenFolderItem(LPCITEMIDLIST pidlItem,BOOL bOpenInNewTab,BOOL bOpenInNewWindow)
+void Explorerplusplus::OpenFolderItem(PCIDLIST_ABSOLUTE pidlItem, BOOL bOpenInNewTab, BOOL bOpenInNewWindow)
 {
 	if(bOpenInNewWindow)
 		m_navigation->OpenDirectoryInNewWindow(pidlItem);
 	else if(m_config->alwaysOpenNewTab || bOpenInNewTab)
 		m_tabContainer->CreateNewTab(pidlItem, TabSettings(_selected = true));
 	else
-		m_navigation->BrowseFolderInCurrentTab(pidlItem,0);
+		m_navigation->BrowseFolderInCurrentTab(pidlItem);
 }
 
-void Explorerplusplus::OpenFileItem(LPCITEMIDLIST pidlItem,const TCHAR *szParameters)
+void Explorerplusplus::OpenFileItem(PCIDLIST_ABSOLUTE pidlItem,const TCHAR *szParameters)
 {
-	TCHAR			szItemDirectory[MAX_PATH];
-	LPITEMIDLIST	pidlParent = NULL;
+	unique_pidl_absolute pidlParent(ILCloneFull(pidlItem));
+	ILRemoveLastID(pidlParent.get());
 
-	pidlParent = ILClone(pidlItem);
-
-	ILRemoveLastID(pidlParent);
-
-	GetDisplayName(pidlParent,szItemDirectory,SIZEOF_ARRAY(szItemDirectory),SHGDN_FORPARSING);
+	TCHAR szItemDirectory[MAX_PATH];
+	GetDisplayName(pidlParent.get(),szItemDirectory,SIZEOF_ARRAY(szItemDirectory),SHGDN_FORPARSING);
 
 	ExecuteFileAction(m_hContainer,EMPTY_STRING,szParameters,szItemDirectory,pidlItem);
-
-	CoTaskMemFree(pidlParent);
 }
 
 BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
@@ -354,7 +315,7 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 	int				iTabBackingWidth;
 	int				iTabBackingLeft;
 
-	if (!m_InitializationFinished)
+	if (!m_InitializationFinished.get())
 	{
 		return TRUE;
 	}
@@ -382,13 +343,18 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 		IndentLeft = GetRectWidth(&rc);
 	}
 
+	RECT tabWindowRect;
+	GetClientRect(m_tabContainer->GetHWND(), &tabWindowRect);
+
+	int tabWindowHeight = GetRectHeight(&tabWindowRect);
+
 	IndentTop = iIndentRebar;
 
 	if(m_bShowTabBar)
 	{
 		if(!m_config->showTabBarAtBottom)
 		{
-			IndentTop += TAB_WINDOW_HEIGHT;
+			IndentTop += tabWindowHeight;
 		}
 	}
 
@@ -415,21 +381,27 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 	}
 	else
 	{
-		iTabTop = MainWindowHeight - IndentBottom - TAB_WINDOW_HEIGHT;
+		iTabTop = MainWindowHeight - IndentBottom - tabWindowHeight;
 	}
 
 	/* If we're showing the tab bar at the bottom of the listview,
 	the only thing that will change is the top coordinate. */
 	SetWindowPos(m_hTabBacking,m_hDisplayWindow,iTabBackingLeft,
-		iTabTop,iTabBackingWidth,
-		TAB_WINDOW_HEIGHT,uFlags);
+		iTabTop,iTabBackingWidth,tabWindowHeight,uFlags);
 
 	SetWindowPos(m_tabContainer->GetHWND(),NULL,0,0,iTabBackingWidth - 25,
-		TAB_WINDOW_HEIGHT,SWP_SHOWWINDOW|SWP_NOZORDER);
+		tabWindowHeight,SWP_SHOWWINDOW|SWP_NOZORDER);
+
+	UINT dpi = m_dpiCompat.GetDpiForWindow(m_hContainer);
 
 	/* Tab close button. */
-	SetWindowPos(m_hTabWindowToolbar,NULL,iTabBackingWidth + TAB_TOOLBAR_X_OFFSET,
-	TAB_TOOLBAR_Y_OFFSET,TAB_TOOLBAR_WIDTH,TAB_TOOLBAR_HEIGHT,SWP_SHOWWINDOW|SWP_NOZORDER);
+	int scaledCloseToolbarWidth = MulDiv(CLOSE_TOOLBAR_WIDTH, dpi, USER_DEFAULT_SCREEN_DPI);
+	int scaledCloseToolbarHeight = MulDiv(CLOSE_TOOLBAR_HEIGHT, dpi, USER_DEFAULT_SCREEN_DPI);
+	int scaledCloseToolbarXOffset = MulDiv(CLOSE_TOOLBAR_X_OFFSET, dpi, USER_DEFAULT_SCREEN_DPI);
+	int scaledCloseToolbarYOffset = MulDiv(CLOSE_TOOLBAR_Y_OFFSET, dpi, USER_DEFAULT_SCREEN_DPI);
+
+	SetWindowPos(m_hTabWindowToolbar, NULL, iTabBackingWidth - scaledCloseToolbarWidth - scaledCloseToolbarXOffset,
+		scaledCloseToolbarYOffset, scaledCloseToolbarWidth, scaledCloseToolbarHeight, SWP_SHOWWINDOW | SWP_NOZORDER);
 
 	if(m_config->extendTabControl &&
 		!m_config->showTabBarAtBottom)
@@ -447,7 +419,7 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 		m_config->showTabBarAtBottom &&
 		m_bShowTabBar)
 	{
-		iHolderHeight = MainWindowHeight - IndentBottom - iHolderTop - TAB_WINDOW_HEIGHT;
+		iHolderHeight = MainWindowHeight - IndentBottom - iHolderTop - tabWindowHeight;
 	}
 	else
 	{
@@ -461,13 +433,12 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 
 	/* The treeview is only slightly smaller than the holder
 	window, in both the x and y-directions. */
-	SetWindowPos(m_hTreeView,NULL,TREEVIEW_X_CLEARANCE,TREEVIEW_Y_CLEARANCE,
+	SetWindowPos(m_hTreeView,NULL,TREEVIEW_X_CLEARANCE,tabWindowHeight,
 		iHolderWidth - TREEVIEW_HOLDER_CLEARANCE - TREEVIEW_X_CLEARANCE,
-		iHolderHeight - TREEVIEW_Y_CLEARANCE,SWP_NOZORDER);
+		iHolderHeight - tabWindowHeight,SWP_NOZORDER);
 
-	SetWindowPos(m_hFoldersToolbar,NULL,
-		iHolderWidth + FOLDERS_TOOLBAR_X_OFFSET,FOLDERS_TOOLBAR_Y_OFFSET,
-		FOLDERS_TOOLBAR_WIDTH,FOLDERS_TOOLBAR_HEIGHT,SWP_SHOWWINDOW|SWP_NOZORDER);
+	SetWindowPos(m_hFoldersToolbar, NULL, iHolderWidth - scaledCloseToolbarWidth - scaledCloseToolbarXOffset,
+		scaledCloseToolbarYOffset, scaledCloseToolbarWidth, scaledCloseToolbarHeight, SWP_SHOWWINDOW | SWP_NOZORDER);
 
 
 	/* <---- Display window ----> */
@@ -482,14 +453,14 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 	{
 		uFlags = SWP_NOZORDER;
 
-		if (m_tabContainer->IsTabSelected(tab))
+		if (m_tabContainer->IsTabSelected(*tab))
 		{
 			uFlags |= SWP_SHOWWINDOW;
 		}
 
 		if(!m_config->showTabBarAtBottom)
 		{
-			SetWindowPos(tab.listView,NULL,IndentLeft,IndentTop,
+			SetWindowPos(tab->GetShellBrowser()->GetListView(),NULL,IndentLeft,IndentTop,
 				MainWindowWidth - IndentLeft,MainWindowHeight - IndentBottom - IndentTop,
 				uFlags);
 		}
@@ -497,13 +468,13 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 		{
 			if(m_bShowTabBar)
 			{
-				SetWindowPos(tab.listView,NULL,IndentLeft,IndentTop,
-					MainWindowWidth - IndentLeft,MainWindowHeight - IndentBottom - IndentTop - TAB_WINDOW_HEIGHT,
+				SetWindowPos(tab->GetShellBrowser()->GetListView(),NULL,IndentLeft,IndentTop,
+					MainWindowWidth - IndentLeft,MainWindowHeight - IndentBottom - IndentTop - tabWindowHeight,
 					uFlags);
 			}
 			else
 			{
-				SetWindowPos(tab.listView,NULL,IndentLeft,IndentTop,
+				SetWindowPos(tab->GetShellBrowser()->GetListView(),NULL,IndentLeft,IndentTop,
 					MainWindowWidth - IndentLeft,MainWindowHeight - IndentBottom - IndentTop,
 					uFlags);
 			}
@@ -528,7 +499,14 @@ BOOL Explorerplusplus::OnSize(int MainWindowWidth,int MainWindowHeight)
 	return TRUE;
 }
 
-int Explorerplusplus::OnDestroy(void)
+void Explorerplusplus::OnDpiChanged(const RECT *updatedWindowRect)
+{
+	SetWindowPos(m_hContainer, nullptr, updatedWindowRect->left, updatedWindowRect->top,
+		GetRectWidth(updatedWindowRect), GetRectHeight(updatedWindowRect),
+		SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+int Explorerplusplus::OnDestroy()
 {
 	if(m_pClipboardDataObject != NULL)
 	{
@@ -553,7 +531,7 @@ int Explorerplusplus::OnDestroy(void)
 	return 0;
 }
 
-int Explorerplusplus::OnClose(void)
+int Explorerplusplus::OnClose()
 {
 	if(m_config->confirmCloseTabs && (m_tabContainer->GetNumTabs() > 1))
 	{
@@ -587,7 +565,7 @@ int Explorerplusplus::OnClose(void)
 	return 0;
 }
 
-void Explorerplusplus::OnSetFocus(void)
+void Explorerplusplus::OnSetFocus()
 {
 	SetFocus(m_hLastActiveWindow);
 }
@@ -597,7 +575,7 @@ void Explorerplusplus::OnSetFocus(void)
  * All cut items are deghosted, and the 'Paste' button
  * is enabled/disabled.
  */
-void Explorerplusplus::OnDrawClipboard(void)
+void Explorerplusplus::OnDrawClipboard()
 {
 	if(m_pClipboardDataObject != NULL)
 	{
@@ -645,8 +623,7 @@ void Explorerplusplus::OnDrawClipboard(void)
 		}
 	}
 
-	SendMessage(m_mainToolbar->GetHWND(),TB_ENABLEBUTTON,(WPARAM)TOOLBAR_PASTE,
-		!m_pActiveShellBrowser->InVirtualFolder() && IsClipboardFormatAvailable(CF_HDROP));
+	SendMessage(m_mainToolbar->GetHWND(), TB_ENABLEBUTTON, ToolbarButton::Paste, CanPaste());
 
 	if(m_hNextClipboardViewer != NULL)
 	{
@@ -670,7 +647,6 @@ void Explorerplusplus::OnChangeCBChain(WPARAM wParam,LPARAM lParam)
 void Explorerplusplus::HandleDirectoryMonitoring(int iTabId)
 {
 	DirectoryAltered_t	*pDirectoryAltered = NULL;
-	TCHAR				szDirectoryToWatch[MAX_PATH];
 	int					iDirMonitorId;
 
 	Tab &tab = m_tabContainer->GetTab(iTabId);
@@ -680,8 +656,7 @@ void Explorerplusplus::HandleDirectoryMonitoring(int iTabId)
 	/* Stop monitoring the directory that was browsed from. */
 	m_pDirMon->StopDirectoryMonitor(iDirMonitorId);
 
-	tab.GetShellBrowser()->QueryCurrentDirectory(SIZEOF_ARRAY(szDirectoryToWatch),
-		szDirectoryToWatch);
+	std::wstring directoryToWatch = tab.GetShellBrowser()->GetDirectory();
 
 	/* Don't watch virtual folders (the 'recycle bin' may be an
 	exception to this). */
@@ -694,12 +669,12 @@ void Explorerplusplus::HandleDirectoryMonitoring(int iTabId)
 		pDirectoryAltered = (DirectoryAltered_t *)malloc(sizeof(DirectoryAltered_t));
 
 		pDirectoryAltered->iIndex		= iTabId;
-		pDirectoryAltered->iFolderIndex	= tab.GetShellBrowser()->GetFolderIndex();
+		pDirectoryAltered->iFolderIndex	= tab.GetShellBrowser()->GetUniqueFolderId();
 		pDirectoryAltered->pData		= this;
 
 		/* Start monitoring the directory that was opened. */
-		LOG(debug) << _T("Starting directory monitoring for \"") << szDirectoryToWatch << _T("\"");
-		iDirMonitorId = m_pDirMon->WatchDirectory(szDirectoryToWatch,FILE_NOTIFY_CHANGE_FILE_NAME|
+		LOG(debug) << _T("Starting directory monitoring for \"") << directoryToWatch << _T("\"");
+		iDirMonitorId = m_pDirMon->WatchDirectory(directoryToWatch.c_str(),FILE_NOTIFY_CHANGE_FILE_NAME|
 			FILE_NOTIFY_CHANGE_SIZE|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_ATTRIBUTES|
 			FILE_NOTIFY_CHANGE_LAST_WRITE|FILE_NOTIFY_CHANGE_LAST_ACCESS|FILE_NOTIFY_CHANGE_CREATION|
 			FILE_NOTIFY_CHANGE_SECURITY,DirectoryAlteredCallback,FALSE,(void *)pDirectoryAltered);
@@ -724,12 +699,12 @@ void Explorerplusplus::OnDisplayWindowResized(WPARAM wParam)
  * Sizes all columns in the active listview
  * based on their text.
  */
-void Explorerplusplus::OnAutoSizeColumns(void)
+void Explorerplusplus::OnAutoSizeColumns()
 {
 	size_t	nColumns;
 	UINT	iCol = 0;
 
-	nColumns = m_pActiveShellBrowser->QueryNumActiveColumns();
+	nColumns = m_pActiveShellBrowser->GetNumActiveColumns();
 
 	for(iCol = 0;iCol < nColumns;iCol++)
 	{
@@ -738,42 +713,45 @@ void Explorerplusplus::OnAutoSizeColumns(void)
 }
 
 /* Cycle through the current views. */
-void Explorerplusplus::OnToolbarViews(void)
+void Explorerplusplus::OnToolbarViews()
 {
 	CycleViewState(TRUE);
 }
 
 void Explorerplusplus::CycleViewState(BOOL bCycleForward)
 {
-	ViewMode viewMode = m_pActiveShellBrowser->GetViewMode();
+	Tab &selectedTab = m_tabContainer->GetSelectedTab();
+	ViewMode viewMode = selectedTab.GetShellBrowser()->GetViewMode();
 	ViewMode newViewMode;
 
 	if(bCycleForward)
 	{
-		newViewMode = GetNextViewMode(m_viewModes, viewMode);
+		newViewMode = GetNextViewMode(VIEW_MODES, viewMode);
 	}
 	else
 	{
-		newViewMode = GetPreviousViewMode(m_viewModes, viewMode);
+		newViewMode = GetPreviousViewMode(VIEW_MODES, viewMode);
 	}
 
-	m_pActiveShellBrowser->SetViewMode(newViewMode);
+	selectedTab.GetShellBrowser()->SetViewMode(newViewMode);
 }
 
 void Explorerplusplus::OnSortByAscending(BOOL bSortAscending)
 {
-	if(bSortAscending != m_pActiveShellBrowser->GetSortAscending())
-	{
-		m_pActiveShellBrowser->SetSortAscending(bSortAscending);
+	Tab &selectedTab = m_tabContainer->GetSelectedTab();
 
-		SortMode sortMode = m_pActiveShellBrowser->GetSortMode();
+	if(bSortAscending != selectedTab.GetShellBrowser()->GetSortAscending())
+	{
+		selectedTab.GetShellBrowser()->SetSortAscending(bSortAscending);
+
+		SortMode sortMode = selectedTab.GetShellBrowser()->GetSortMode();
 
 		/* It is quicker to re-sort the folder than refresh it. */
-		m_pActiveShellBrowser->SortFolder(sortMode);
+		selectedTab.GetShellBrowser()->SortFolder(sortMode);
 	}
 }
 
-void Explorerplusplus::OnPreviousWindow(void)
+void Explorerplusplus::OnPreviousWindow()
 {
 	if(m_bListViewRenaming)
 	{
@@ -822,7 +800,7 @@ void Explorerplusplus::OnPreviousWindow(void)
  * Shifts focus to the next internal
  * window in the chain.
  */
-void Explorerplusplus::OnNextWindow(void)
+void Explorerplusplus::OnNextWindow()
 {
 	if(m_bListViewRenaming)
 	{
@@ -869,34 +847,7 @@ void Explorerplusplus::OnNextWindow(void)
 	}
 }
 
-void Explorerplusplus::SetGoMenuName(HMENU hMenu,UINT uMenuID,UINT csidl)
-{
-	MENUITEMINFO	mii;
-	LPITEMIDLIST	pidl = NULL;
-	TCHAR			szFolderName[MAX_PATH];
-	HRESULT			hr;
-
-	hr = SHGetFolderLocation(NULL,csidl,NULL,0,&pidl);
-
-	/* Don't use SUCCEEDED(hr). */
-	if(hr == S_OK)
-	{
-		GetDisplayName(pidl,szFolderName,SIZEOF_ARRAY(szFolderName),SHGDN_INFOLDER);
-
-		mii.cbSize		= sizeof(mii);
-		mii.fMask		= MIIM_STRING;
-		mii.dwTypeData	= szFolderName;
-		SetMenuItemInfo(hMenu,uMenuID,FALSE,&mii);
-
-		CoTaskMemFree(pidl);
-	}
-	else
-	{
-		DeleteMenu(hMenu,uMenuID,MF_BYCOMMAND);
-	}
-}
-
-void Explorerplusplus::OnLockToolbars(void)
+void Explorerplusplus::OnLockToolbars()
 {
 	REBARBANDINFO	rbbi;
 	UINT			nBands;
@@ -947,17 +898,16 @@ void Explorerplusplus::OnAppCommand(UINT cmd)
 		/* This will cancel any menu that may be shown
 		at the moment. */
 		SendMessage(m_hContainer,WM_CANCELMODE,0,0);
-
-		m_navigation->OnBrowseBack();
+		OnGoBack();
 		break;
 
 	case APPCOMMAND_BROWSER_FORWARD:
 		SendMessage(m_hContainer,WM_CANCELMODE,0,0);
-		m_navigation->OnBrowseForward();
+		OnGoForward();
 		break;
 
 	case APPCOMMAND_BROWSER_HOME:
-		m_navigation->OnNavigateHome();
+		OnGoHome();
 		break;
 
 	case APPCOMMAND_BROWSER_FAVORITES:
@@ -1005,10 +955,10 @@ void Explorerplusplus::OnAppCommand(UINT cmd)
 	}
 }
 
-void Explorerplusplus::OnRefresh(void)
+void Explorerplusplus::OnRefresh()
 {
 	Tab &tab = m_tabContainer->GetSelectedTab();
-	RefreshTab(tab);
+	tab.GetShellBrowser()->GetNavigationController()->Refresh();
 }
 
 void Explorerplusplus::CopyColumnInfoToClipboard(void)
@@ -1023,7 +973,7 @@ void Explorerplusplus::CopyColumnInfoToClipboard(void)
 		if(column.bChecked)
 		{
 			TCHAR szText[64];
-			LoadString(m_hLanguageModule,CShellBrowser::LookupColumnNameStringIndex(column.id),szText,SIZEOF_ARRAY(szText));
+			LoadString(m_hLanguageModule,ShellBrowser::LookupColumnNameStringIndex(column.id),szText,SIZEOF_ARRAY(szText));
 
 			strColumnInfo += std::wstring(szText) + _T("\t");
 
@@ -1057,7 +1007,8 @@ void Explorerplusplus::CopyColumnInfoToClipboard(void)
 	/* Remove the trailing newline. */
 	strColumnInfo = strColumnInfo.substr(0,strColumnInfo.size() - 2);
 
-	CopyTextToClipboard(strColumnInfo);
+	BulkClipboardWriter clipboardWriter;
+	clipboardWriter.WriteText(strColumnInfo);
 }
 
 void Explorerplusplus::ToggleFilterStatus()
@@ -1090,14 +1041,16 @@ void Explorerplusplus::OnDirectoryModified(int iTabId)
 	   the display window)
 	*/
 
-	if(iTabId == m_tabContainer->GetSelectedTab().GetId())
+	const Tab &selectedTab = m_tabContainer->GetSelectedTab();
+
+	if(iTabId == selectedTab.GetId())
 	{
-		UpdateStatusBarText();
-		UpdateDisplayWindow();
+		UpdateStatusBarText(selectedTab);
+		UpdateDisplayWindow(selectedTab);
 	}
 }
 
-void Explorerplusplus::OnIdaRClick(void)
+void Explorerplusplus::OnIdaRClick()
 {
 	/* Show the context menu (if any)
 	for the window that currently has
@@ -1213,7 +1166,7 @@ References:
 http://tech.groups.yahoo.com/group/wtl/message/13911
 http://www.eggheadcafe.com/forumarchives/platformsdkshell/Nov2005/post24294253.asp
 */
-void Explorerplusplus::OnAssocChanged(void)
+void Explorerplusplus::OnAssocChanged()
 {
 	typedef BOOL (WINAPI *FII_PROC)(BOOL);
 	FII_PROC FileIconInit;
@@ -1265,7 +1218,7 @@ void Explorerplusplus::OnAssocChanged(void)
 	/* Now, go through each tab, and refresh each icon. */
 	for (auto &tab : m_tabContainer->GetAllTabs() | boost::adaptors::map_values)
 	{
-		tab.GetShellBrowser()->Refresh();
+		tab->GetShellBrowser()->GetNavigationController()->Refresh();
 	}
 
 	/* Now, refresh the treeview. */
@@ -1274,15 +1227,13 @@ void Explorerplusplus::OnAssocChanged(void)
 	/* TODO: Update the address bar. */
 }
 
-void Explorerplusplus::OnCloneWindow(void)
+void Explorerplusplus::OnCloneWindow()
 {
-	TCHAR szCurrentDirectory[MAX_PATH];
-	m_pActiveShellBrowser->QueryCurrentDirectory(SIZEOF_ARRAY(szCurrentDirectory),
-		szCurrentDirectory);
+	std::wstring currentDirectory = m_pActiveShellBrowser->GetDirectory();
 
 	TCHAR szQuotedCurrentDirectory[MAX_PATH];
 	StringCchPrintf(szQuotedCurrentDirectory, SIZEOF_ARRAY(szQuotedCurrentDirectory),
-		_T("\"%s\""),szCurrentDirectory);
+		_T("\"%s\""), currentDirectory.c_str());
 
 	ExecuteAndShowCurrentProcess(m_hContainer, szQuotedCurrentDirectory);
 }
@@ -1363,10 +1314,10 @@ LRESULT Explorerplusplus::OnCustomDraw(LPARAM lParam)
 
 		case CDDS_ITEMPREPAINT:
 			{
-				DWORD dwAttributes = m_pActiveShellBrowser->QueryFileAttributes(static_cast<int>(pnmcd->dwItemSpec));
+				DWORD dwAttributes = m_pActiveShellBrowser->GetItemFileFindData(static_cast<int>(pnmcd->dwItemSpec)).dwFileAttributes;
 
 				TCHAR szFileName[MAX_PATH];
-				m_pActiveShellBrowser->QueryFullItemName(static_cast<int>(pnmcd->dwItemSpec),szFileName,SIZEOF_ARRAY(szFileName));
+				m_pActiveShellBrowser->GetItemFullName(static_cast<int>(pnmcd->dwItemSpec),szFileName,SIZEOF_ARRAY(szFileName));
 				PathStripPath(szFileName);
 
 				/* Loop through each filter. Decide whether to change the font of the
@@ -1419,39 +1370,41 @@ LRESULT Explorerplusplus::OnCustomDraw(LPARAM lParam)
 
 void Explorerplusplus::OnSortBy(SortMode sortMode)
 {
-	SortMode currentSortMode = m_pActiveShellBrowser->GetSortMode();
+	Tab &selectedTab = m_tabContainer->GetSelectedTab();
+	SortMode currentSortMode = selectedTab.GetShellBrowser()->GetSortMode();
 
-	if(!m_pActiveShellBrowser->GetShowInGroups() &&
+	if(!selectedTab.GetShellBrowser()->GetShowInGroups() &&
 		sortMode == currentSortMode)
 	{
-		m_pActiveShellBrowser->SetSortAscending(!m_pActiveShellBrowser->GetSortAscending());
+		selectedTab.GetShellBrowser()->SetSortAscending(!selectedTab.GetShellBrowser()->GetSortAscending());
 	}
-	else if(m_pActiveShellBrowser->GetShowInGroups())
+	else if(selectedTab.GetShellBrowser()->GetShowInGroups())
 	{
-		m_pActiveShellBrowser->SetShowInGroups(FALSE);
+		selectedTab.GetShellBrowser()->SetShowInGroups(FALSE);
 	}
 
-	m_pActiveShellBrowser->SortFolder(sortMode);
+	selectedTab.GetShellBrowser()->SortFolder(sortMode);
 }
 
 void Explorerplusplus::OnGroupBy(SortMode sortMode)
 {
-	SortMode currentSortMode = m_pActiveShellBrowser->GetSortMode();
+	Tab &selectedTab = m_tabContainer->GetSelectedTab();
+	SortMode currentSortMode = selectedTab.GetShellBrowser()->GetSortMode();
 
 	/* If group view is already enabled, and the current sort
 	mode matches the supplied sort mode, toggle the ascending/
 	descending flag. */
-	if(m_pActiveShellBrowser->GetShowInGroups() &&
+	if(selectedTab.GetShellBrowser()->GetShowInGroups() &&
 		sortMode == currentSortMode)
 	{
-		m_pActiveShellBrowser->SetSortAscending(!m_pActiveShellBrowser->GetSortAscending());
+		selectedTab.GetShellBrowser()->SetSortAscending(!selectedTab.GetShellBrowser()->GetSortAscending());
 	}
-	else if(!m_pActiveShellBrowser->GetShowInGroups())
+	else if(!selectedTab.GetShellBrowser()->GetShowInGroups())
 	{
-		m_pActiveShellBrowser->SetShowInGroupsFlag(TRUE);
+		selectedTab.GetShellBrowser()->SetShowInGroupsFlag(TRUE);
 	}
 
-	m_pActiveShellBrowser->SortFolder(sortMode);
+	selectedTab.GetShellBrowser()->SortFolder(sortMode);
 }
 
 void Explorerplusplus::SaveAllSettings()
@@ -1461,9 +1414,9 @@ void Explorerplusplus::SaveAllSettings()
 	ILoadSave *pLoadSave = NULL;
 
 	if(m_bSavePreferencesToXMLFile)
-		pLoadSave = new CLoadSaveXML(this,FALSE);
+		pLoadSave = new LoadSaveXML(this,FALSE);
 	else
-		pLoadSave = new CLoadSaveRegistry(this);
+		pLoadSave = new LoadSaveRegistry(this);
 
 	pLoadSave->SaveGenericSettings();
 	pLoadSave->SaveTabs();
@@ -1477,6 +1430,16 @@ void Explorerplusplus::SaveAllSettings()
 	delete pLoadSave;
 }
 
+Config *Explorerplusplus::GetConfig() const
+{
+	return m_config.get();
+}
+
+HMODULE Explorerplusplus::GetLanguageModule() const
+{
+	return m_hLanguageModule;
+}
+
 HWND Explorerplusplus::GetMainWindow() const
 {
 	return m_hContainer;
@@ -1487,14 +1450,24 @@ HWND Explorerplusplus::GetActiveListView() const
 	return m_hActiveListView;
 }
 
-CShellBrowser *Explorerplusplus::GetActiveShellBrowser() const
+ShellBrowser *Explorerplusplus::GetActiveShellBrowser() const
 {
 	return m_pActiveShellBrowser;
+}
+
+IExplorerplusplus *Explorerplusplus::GetCoreInterface()
+{
+	return this;
 }
 
 TabContainer *Explorerplusplus::GetTabContainer() const
 {
 	return m_tabContainer;
+}
+
+TabRestorer *Explorerplusplus::GetTabRestorer() const
+{
+	return m_tabRestorer.get();
 }
 
 HWND Explorerplusplus::GetTreeView() const
@@ -1507,10 +1480,29 @@ IDirectoryMonitor *Explorerplusplus::GetDirectoryMonitor() const
 	return m_pDirMon;
 }
 
-void Explorerplusplus::OnShowHiddenFiles(void)
+IconResourceLoader *Explorerplusplus::GetIconResourceLoader() const
 {
-	m_pActiveShellBrowser->SetShowHidden(!m_pActiveShellBrowser->GetShowHidden());
+	return m_iconResourceLoader.get();
+}
 
+CachedIcons *Explorerplusplus::GetCachedIcons()
+{
+	return &m_cachedIcons;
+}
+
+BOOL Explorerplusplus::GetSavePreferencesToXmlFile() const
+{
+	return m_bSavePreferencesToXMLFile;
+}
+
+void Explorerplusplus::SetSavePreferencesToXmlFile(BOOL savePreferencesToXmlFile)
+{
+	m_bSavePreferencesToXMLFile = savePreferencesToXmlFile;
+}
+
+void Explorerplusplus::OnShowHiddenFiles()
+{
 	Tab &tab = m_tabContainer->GetSelectedTab();
-	RefreshTab(tab);
+	tab.GetShellBrowser()->SetShowHidden(!tab.GetShellBrowser()->GetShowHidden());
+	tab.GetShellBrowser()->GetNavigationController()->Refresh();
 }

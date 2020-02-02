@@ -4,10 +4,12 @@
 
 #pragma once
 
-#include "ResizableDialog.h"
+#include "DpiCompatibility.h"
+#include "Macros.h"
 #include "MessageForwarder.h"
 #include "ReferenceCount.h"
-#include "Macros.h"
+#include "ResizableDialog.h"
+#include <wil/resource.h>
 
 __interface IModelessDialogNotification : public IReferenceCount
 {
@@ -18,7 +20,7 @@ __interface IModelessDialogNotification : public IReferenceCount
 For instance, provides the ability for a class to manage
 a dialog without having to handle the dialog procedure
 directly. */
-class CBaseDialog : public CMessageForwarder
+class BaseDialog : public MessageForwarder
 {
 	friend INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
@@ -31,8 +33,11 @@ public:
 		DIALOG_SIZE_CONSTRAINT_Y
 	};
 
-	CBaseDialog(HINSTANCE hInstance,int iResource,HWND hParent,bool bResizable);
-	virtual ~CBaseDialog();
+	static const int RETURN_CANCEL = 0;
+	static const int RETURN_OK = 1;
+
+	BaseDialog(HINSTANCE hInstance,int iResource,HWND hParent,bool bResizable);
+	virtual ~BaseDialog() = default;
 
 	INT_PTR			ShowModalDialog();
 	HWND			ShowModelessDialog(IModelessDialogNotification *pmdn = NULL);
@@ -40,31 +45,35 @@ public:
 protected:
 
 	HINSTANCE		GetInstance() const;
+	virtual wil::unique_hicon	GetDialogIcon(int iconWidth, int iconHeight) const;
 
 	INT_PTR			GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
-	HWND			m_hDlg;
+	HWND m_hDlg;
+	DpiCompatibility m_dpiCompat;
+	int m_iMinWidth;
+	int m_iMinHeight;
 
 private:
 
-	DISALLOW_COPY_AND_ASSIGN(CBaseDialog);
+	DISALLOW_COPY_AND_ASSIGN(BaseDialog);
 
 	INT_PTR CALLBACK	BaseDialogProc(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
-	virtual void	GetResizableControlInformation(DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	virtual void	GetResizableControlInformation(DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	virtual void	SaveState();
 
-	const HINSTANCE	m_hInstance;
-	const int		m_iResource;
-	const HWND		m_hParent;
-	IModelessDialogNotification	*m_pmdn;
+	const HINSTANCE m_hInstance;
+	const int m_iResource;
+	const HWND m_hParent;
+	IModelessDialogNotification *m_pmdn;
 
-	BOOL			m_bShowingModelessDialog;
+	wil::unique_hicon m_icon;
+
+	BOOL m_bShowingModelessDialog;
 
 	/* Used only with resizable dialogs. */
-	const bool		m_bResizable;
-	DialogSizeConstraint	m_dsc;
-	int				m_iMinWidth;
-	int				m_iMinHeight;
-	std::unique_ptr<CResizableDialog> m_prd;
+	const bool m_bResizable;
+	DialogSizeConstraint m_dsc;
+	std::unique_ptr<ResizableDialog> m_prd;
 };

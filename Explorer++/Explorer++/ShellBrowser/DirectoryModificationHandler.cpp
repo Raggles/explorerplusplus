@@ -3,9 +3,8 @@
 // See LICENSE in the top level directory
 
 #include "stdafx.h"
-#include "IShellView.h"
+#include "ShellBrowser.h"
 #include "Config.h"
-#include "iShellBrowser_internal.h"
 #include "ViewModes.h"
 #include "../Helper/Controls.h"
 #include "../Helper/FileOperations.h"
@@ -20,7 +19,7 @@
 BOOL g_bNewFileRenamed = FALSE;
 static int iRenamedItem;
 
-void CShellBrowser::DirectoryAltered(void)
+void ShellBrowser::DirectoryAltered(void)
 {
 	BOOL bNewItemCreated;
 
@@ -55,7 +54,7 @@ void CShellBrowser::DirectoryAltered(void)
 		index on the modified item and current folder match up
 		(i.e. ensure the directory has not changed since these
 		files were modified). */
-		if(af.iFolderIndex == m_iUniqueFolderIndex)
+		if(af.iFolderIndex == m_uniqueFolderId)
 		{
 			switch(af.dwAction)
 			{
@@ -152,7 +151,7 @@ void CALLBACK TimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
 	SendMessage(hwnd,WM_USER_FILESADDED,(WPARAM)idEvent,0);
 }
 
-void CShellBrowser::FilesModified(DWORD Action,const TCHAR *FileName,
+void ShellBrowser::FilesModified(DWORD Action,const TCHAR *FileName,
 int EventId,int iFolderIndex)
 {
 	EnterCriticalSection(&m_csDirectoryAltered);
@@ -170,11 +169,10 @@ int EventId,int iFolderIndex)
 	LeaveCriticalSection(&m_csDirectoryAltered);
 }
 
-void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
+void ShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 {
 	IShellFolder	*pShellFolder = NULL;
-	LPITEMIDLIST	pidlFull = NULL;
-	LPITEMIDLIST	pidlRelative = NULL;
+	PCITEMID_CHILD	pidlRelative = NULL;
 	Added_t			Added;
 	TCHAR			FullFileName[MAX_PATH];
 	TCHAR			szDisplayName[MAX_PATH];
@@ -185,7 +183,8 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 	StringCchCopy(FullFileName,SIZEOF_ARRAY(FullFileName),m_CurDir);
 	PathAppend(FullFileName,szFileName);
 
-	hr = GetIdlFromParsingName(FullFileName,&pidlFull);
+	unique_pidl_absolute pidlFull;
+	hr = SHParseDisplayName(FullFileName, nullptr, wil::out_param(pidlFull), 0, nullptr);
 
 	/* It is possible that by the time a file is registered here,
 	it will have already been renamed. In this the following
@@ -193,7 +192,7 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 	If the file is not added, store its filename. */
 	if(SUCCEEDED(hr))
 	{
-		hr = SHBindToParent(pidlFull, IID_PPV_ARGS(&pShellFolder), (LPCITEMIDLIST *)&pidlRelative);
+		hr = SHBindToParent(pidlFull.get(), IID_PPV_ARGS(&pShellFolder), &pidlRelative);
 
 		if(SUCCEEDED(hr))
 		{
@@ -232,7 +231,7 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 					int iItemId;
 					int iSorted;
 
-					iItemId = SetItemInformation(m_pidlDirectory,pidlRelative,szDisplayName);
+					iItemId = SetItemInformation(m_directoryState.pidlDirectory.get(),pidlRelative,szDisplayName);
 
 					iSorted = DetermineItemSortedPosition(iItemId);
 
@@ -241,7 +240,7 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 				else
 				{
 					/* Just add the item to the end of the list. */
-					AddItemInternal(m_pidlDirectory,pidlRelative,szDisplayName,-1,FALSE);
+					AddItemInternal(m_directoryState.pidlDirectory.get(),pidlRelative,szDisplayName,-1,FALSE);
 				}
 				
 				InsertAwaitingItems(m_folderSettings.showInGroups);
@@ -251,8 +250,6 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 
 			pShellFolder->Release();
 		}
-
-		CoTaskMemFree(pidlFull);
 	}
 	
 	if(!bFileAdded)
@@ -266,7 +263,7 @@ void CShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 	}
 }
 
-void CShellBrowser::RemoveItemInternal(const TCHAR *szFileName)
+void ShellBrowser::RemoveItemInternal(const TCHAR *szFileName)
 {
 	std::list<Added_t>::iterator itr;
 	int iItemInternal;
@@ -296,7 +293,7 @@ void CShellBrowser::RemoveItemInternal(const TCHAR *szFileName)
 /*
  * Modifies the attributes of an item currently in the listview.
  */
-void CShellBrowser::ModifyItemInternal(const TCHAR *FileName)
+void ShellBrowser::ModifyItemInternal(const TCHAR *FileName)
 {
 	HANDLE			hFirstFile;
 	ULARGE_INTEGER	ulFileSize;
@@ -458,7 +455,7 @@ void CShellBrowser::ModifyItemInternal(const TCHAR *FileName)
 	}
 }
 
-void CShellBrowser::OnFileActionRenamedOldName(const TCHAR *szFileName)
+void ShellBrowser::OnFileActionRenamedOldName(const TCHAR *szFileName)
 {
 	std::list<Added_t>::iterator itrAdded;
 	BOOL bFileHandled = FALSE;
@@ -488,7 +485,7 @@ void CShellBrowser::OnFileActionRenamedOldName(const TCHAR *szFileName)
 	}
 }
 
-void CShellBrowser::OnFileActionRenamedNewName(const TCHAR *szFileName)
+void ShellBrowser::OnFileActionRenamedNewName(const TCHAR *szFileName)
 {
 	if(g_bNewFileRenamed)
 	{
@@ -510,11 +507,10 @@ void CShellBrowser::OnFileActionRenamedNewName(const TCHAR *szFileName)
 adds items as well as the code that finds their icons.
 ALL changes to an items name/internal properties/icon/overlay icon
 should go through a central function. */
-void CShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
+void ShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 {
 	IShellFolder	*pShellFolder = NULL;
-	LPITEMIDLIST	pidlFull = NULL;
-	LPITEMIDLIST	pidlRelative = NULL;
+	PCITEMID_CHILD	pidlRelative = NULL;
 	SHFILEINFO		shfi;
 	LVFINDINFO		lvfi;
 	TCHAR			szDisplayName[MAX_PATH];
@@ -527,14 +523,17 @@ void CShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 	if(iItemInternal == -1)
 		return;
 
+	auto &itemInfo = m_itemInfoMap.at(iItemInternal);
+
 	StringCchCopy(szFullFileName,SIZEOF_ARRAY(szFullFileName),m_CurDir);
 	PathAppend(szFullFileName,szNewFileName);
 
-	hr = GetIdlFromParsingName(szFullFileName,&pidlFull);
+	unique_pidl_absolute pidlFull;
+	hr = SHParseDisplayName(szFullFileName, nullptr, wil::out_param(pidlFull), 0, nullptr);
 
 	if(SUCCEEDED(hr))
 	{
-		hr = SHBindToParent(pidlFull, IID_PPV_ARGS(&pShellFolder), (LPCITEMIDLIST *) &pidlRelative);
+		hr = SHBindToParent(pidlFull.get(), IID_PPV_ARGS(&pShellFolder), &pidlRelative);
 
 		if(SUCCEEDED(hr))
 		{
@@ -542,21 +541,14 @@ void CShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 
 			if(SUCCEEDED(hr))
 			{
-				m_itemInfoMap.at(iItemInternal).pidlComplete.reset(ILClone(pidlFull));
-				m_itemInfoMap.at(iItemInternal).pridl.reset(ILClone(pidlRelative));
-				StringCchCopy(m_itemInfoMap.at(iItemInternal).szDisplayName,
-					SIZEOF_ARRAY(m_itemInfoMap.at(iItemInternal).szDisplayName),
-					szDisplayName);
-
-				/* Need to update internal storage for the item, since
-				it's name has now changed. */
-				StringCchCopy(m_itemInfoMap.at(iItemInternal).wfd.cFileName,
-					SIZEOF_ARRAY(m_itemInfoMap.at(iItemInternal).wfd.cFileName),
-					szNewFileName);
+				itemInfo.pidlComplete.reset(ILCloneFull(pidlFull.get()));
+				itemInfo.pridl.reset(ILCloneChild(pidlRelative));
+				StringCchCopy(itemInfo.szDisplayName, SIZEOF_ARRAY(itemInfo.szDisplayName), szDisplayName);
+				StringCchCopy(itemInfo.wfd.cFileName, SIZEOF_ARRAY(itemInfo.wfd.cFileName), szNewFileName);
 
 				/* The files' type may have changed, so retrieve the files'
 				icon again. */
-				res = SHGetFileInfo((LPTSTR)pidlFull,0,&shfi,
+				res = SHGetFileInfo((LPTSTR)pidlFull.get(),0,&shfi,
 					sizeof(SHFILEINFO),SHGFI_PIDL|SHGFI_ICON|
 					SHGFI_OVERLAYINDEX);
 
@@ -591,7 +583,7 @@ void CShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 						ListView_SetItem(m_hListView,&lvItem);
 
 						/* TODO: Does the file need to be filtered out? */
-						if(IsFileFiltered(iItemInternal))
+						if(IsFileFiltered(itemInfo))
 						{
 							RemoveFilteredItem(iItem,iItemInternal);
 						}
@@ -603,16 +595,10 @@ void CShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 
 			pShellFolder->Release();
 		}
-
-		CoTaskMemFree(pidlFull);
 	}
 	else
 	{
-		StringCchCopy(m_itemInfoMap.at(iItemInternal).szDisplayName,
-			SIZEOF_ARRAY(m_itemInfoMap.at(iItemInternal).szDisplayName), szNewFileName);
-
-		StringCchCopy(m_itemInfoMap.at(iItemInternal).wfd.cFileName,
-			SIZEOF_ARRAY(m_itemInfoMap.at(iItemInternal).wfd.cFileName),
-			szNewFileName);
+		StringCchCopy(itemInfo.szDisplayName, SIZEOF_ARRAY(itemInfo.szDisplayName), szNewFileName);
+		StringCchCopy(itemInfo.wfd.cFileName, SIZEOF_ARRAY(itemInfo.wfd.cFileName), szNewFileName);
 	}
 }

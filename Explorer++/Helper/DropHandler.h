@@ -9,10 +9,10 @@
 #include "FileOperations.h"
 #include "ReferenceCount.h"
 
-enum DragTypes_t
+enum class DragType
 {
-	DRAG_TYPE_LEFTCLICK,
-	DRAG_TYPE_RIGHTCLICK
+	LeftClick,
+	RightClick
 };
 
 /* TODO: Switch to IReferenceCount in the future.
@@ -22,24 +22,24 @@ __interface IDropFilesCallback : public IUnknown
 	void OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt);
 };
 
-class CDropHandler : public CReferenceCount
+class DropHandler : public ReferenceCount
 {
 public:
 
 	/* As this class is reference counted, the constructor
 	and destructor are both private. Use this method to
 	get a new instance of this class. */
-	static CDropHandler	*CreateNew();
+	static DropHandler	*CreateNew();
 
 	static HRESULT		GetDropFormats(std::list<FORMATETC> &ftcList);
 
-	void	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect,HWND hwndDrop,DragTypes_t DragType,TCHAR *szDestDirectory,IDropFilesCallback *pDropFilesCallback,BOOL bRenameOnCollision);
+	void	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect,HWND hwndDrop,DragType dragType,TCHAR *szDestDirectory,IDropFilesCallback *pDropFilesCallback,BOOL bRenameOnCollision);
 	void	CopyClipboardData(IDataObject *pDataObject,HWND hwndDrop,TCHAR *szDestDirectory,IDropFilesCallback *pDropFilesCallback,BOOL bRenameOnCollision);
 
 private:
 
-	CDropHandler();
-	~CDropHandler();
+	DropHandler() = default;
+	~DropHandler() = default;
 
 	void	HandleLeftClickDrop(IDataObject *pDataObject,POINTL *pptl);
 	void	HandleRightClickDrop(void);
@@ -76,7 +76,7 @@ private:
 	POINTL				m_ptl;
 	DWORD				m_dwEffect;
 	HWND				m_hwndDrop;
-	DragTypes_t			m_DragType;
+	DragType			m_DragType;
 	TCHAR				*m_szDestDirectory;
 	BOOL				m_bRenameOnCollision;
 };

@@ -5,100 +5,88 @@
 #include "stdafx.h"
 #include "FilterDialog.h"
 #include "Explorer++_internal.h"
-#include "MainImages.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
-#include "ShellBrowser/iShellView.h"
+#include "ResourceHelper.h"
+#include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/Helper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/RegistrySettings.h"
 #include "../Helper/XMLSettings.h"
 #include <list>
 
+const TCHAR FilterDialogPersistentSettings::SETTINGS_KEY[] = _T("Filter");
 
-const TCHAR CFilterDialogPersistentSettings::SETTINGS_KEY[] = _T("Filter");
+const TCHAR FilterDialogPersistentSettings::SETTING_FILTER_LIST[] = _T("Filter");
 
-const TCHAR CFilterDialogPersistentSettings::SETTING_FILTER_LIST[] = _T("Filter");
-
-CFilterDialog::CFilterDialog(HINSTANCE hInstance,
-	int iResource,HWND hParent,IExplorerplusplus *pexpp) :
-CBaseDialog(hInstance,iResource,hParent,true)
+FilterDialog::FilterDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *pexpp) :
+	BaseDialog(hInstance, IDD_FILTER, hParent, true)
 {
 	m_pexpp = pexpp;
 
-	m_pfdps = &CFilterDialogPersistentSettings::GetInstance();
+	m_persistentSettings = &FilterDialogPersistentSettings::GetInstance();
 }
 
-CFilterDialog::~CFilterDialog()
+INT_PTR FilterDialog::OnInitDialog()
 {
-
-}
-
-INT_PTR CFilterDialog::OnInitDialog()
-{
-	HIMAGELIST himl = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,48);
-	HBITMAP hBitmap = LoadBitmap(GetModuleHandle(0),MAKEINTRESOURCE(IDB_SHELLIMAGES));
-	ImageList_Add(himl,hBitmap,NULL);
-
-	m_hDialogIcon = ImageList_GetIcon(himl,SHELLIMAGES_FILTER,ILD_NORMAL);
-	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_hDialogIcon));
-
-	DeleteObject(hBitmap);
-	ImageList_Destroy(himl);
-
 	HWND hComboBox = GetDlgItem(m_hDlg,IDC_FILTER_COMBOBOX);
 
 	SetFocus(hComboBox);
 
-	for(const auto &strFilter : m_pfdps->m_FilterList)
+	for(const auto &strFilter : m_persistentSettings->m_FilterList)
 	{
 		SendMessage(hComboBox,CB_ADDSTRING,static_cast<WPARAM>(-1),
 			reinterpret_cast<LPARAM>(strFilter.c_str()));
 	}
 
-	TCHAR szFilter[512];
-	m_pexpp->GetActiveShellBrowser()->GetFilter(szFilter,SIZEOF_ARRAY(szFilter));
+	std::wstring filter = m_pexpp->GetActiveShellBrowser()->GetFilter();
 
-	ComboBox_SelectString(hComboBox,-1,szFilter);
+	ComboBox_SelectString(hComboBox,-1,filter.c_str());
 
 	SendMessage(hComboBox,CB_SETEDITSEL,0,MAKELPARAM(0,-1));
 
 	if (m_pexpp->GetActiveShellBrowser()->GetFilterCaseSensitive())
 		CheckDlgButton(m_hDlg,IDC_FILTERS_CASESENSITIVE,BST_CHECKED);
 
-	m_pfdps->RestoreDialogPosition(m_hDlg,true);
+	m_persistentSettings->RestoreDialogPosition(m_hDlg,true);
 
 	return 0;
 }
 
-void CFilterDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+wil::unique_hicon FilterDialog::GetDialogIcon(int iconWidth, int iconHeight) const
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_X;
+	return m_pexpp->GetIconResourceLoader()->LoadIconFromPNGAndScale(Icon::Filter, iconWidth, iconHeight);
+}
 
-	CResizableDialog::Control_t Control;
+void FilterDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
+{
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_X;
+
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_FILTER_COMBOBOX;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDOK;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDCANCEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 
-INT_PTR CFilterDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR FilterDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -116,20 +104,13 @@ INT_PTR CFilterDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CFilterDialog::OnClose()
+INT_PTR FilterDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;
 }
 
-INT_PTR CFilterDialog::OnDestroy()
-{
-	DestroyIcon(m_hDialogIcon);
-
-	return 0;
-}
-
-void CFilterDialog::OnOk()
+void FilterDialog::OnOk()
 {
 	HWND hComboBox = GetDlgItem(m_hDlg,IDC_FILTER_COMBOBOX);
 
@@ -145,11 +126,11 @@ void CFilterDialog::OnOk()
 	/* If the entry already exists in the list,
 	simply move the existing entry to the start.
 	Otherwise, insert it at the start. */
-	for(auto itr = m_pfdps->m_FilterList.begin();itr != m_pfdps->m_FilterList.end();itr++)
+	for(auto itr = m_persistentSettings->m_FilterList.begin();itr != m_persistentSettings->m_FilterList.end();itr++)
 	{
 		if(lstrcmp(filter.get(),itr->c_str()) == 0)
 		{
-			std::iter_swap(itr,m_pfdps->m_FilterList.begin());
+			std::iter_swap(itr,m_persistentSettings->m_FilterList.begin());
 
 			bFound = true;
 			break;
@@ -158,7 +139,7 @@ void CFilterDialog::OnOk()
 
 	if(!bFound)
 	{
-		m_pfdps->m_FilterList.push_front(filter.get());
+		m_persistentSettings->m_FilterList.push_front(filter.get());
 	}
 
 	m_pexpp->GetActiveShellBrowser()->SetFilterCaseSensitive(IsDlgButtonChecked(
@@ -172,52 +153,47 @@ void CFilterDialog::OnOk()
 	EndDialog(m_hDlg,1);
 }
 
-void CFilterDialog::OnCancel()
+void FilterDialog::OnCancel()
 {
 	EndDialog(m_hDlg,0);
 }
 
-void CFilterDialog::SaveState()
+void FilterDialog::SaveState()
 {
-	m_pfdps->SaveDialogPosition(m_hDlg);
+	m_persistentSettings->SaveDialogPosition(m_hDlg);
 
-	m_pfdps->m_bStateSaved = TRUE;
+	m_persistentSettings->m_bStateSaved = TRUE;
 }
 
-CFilterDialogPersistentSettings::CFilterDialogPersistentSettings() :
-CDialogSettings(SETTINGS_KEY)
+FilterDialogPersistentSettings::FilterDialogPersistentSettings() :
+DialogSettings(SETTINGS_KEY)
 {
 
 }
 
-CFilterDialogPersistentSettings::~CFilterDialogPersistentSettings()
+FilterDialogPersistentSettings& FilterDialogPersistentSettings::GetInstance()
 {
-	
-}
-
-CFilterDialogPersistentSettings& CFilterDialogPersistentSettings::GetInstance()
-{
-	static CFilterDialogPersistentSettings sfadps;
+	static FilterDialogPersistentSettings sfadps;
 	return sfadps;
 }
 
-void CFilterDialogPersistentSettings::SaveExtraRegistrySettings(HKEY hKey)
+void FilterDialogPersistentSettings::SaveExtraRegistrySettings(HKEY hKey)
 {
 	NRegistrySettings::SaveStringListToRegistry(hKey, SETTING_FILTER_LIST, m_FilterList);
 }
 
-void CFilterDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
+void FilterDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
 {
 	NRegistrySettings::ReadStringListFromRegistry(hKey, SETTING_FILTER_LIST, m_FilterList);
 }
 
-void CFilterDialogPersistentSettings::SaveExtraXMLSettings(
+void FilterDialogPersistentSettings::SaveExtraXMLSettings(
 	IXMLDOMDocument *pXMLDom,IXMLDOMElement *pParentNode)
 {
 	NXMLSettings::AddStringListToNode(pXMLDom, pParentNode, SETTING_FILTER_LIST, m_FilterList);
 }
 
-void CFilterDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bstrValue)
+void FilterDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bstrValue)
 {
 	if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE, bstrName, lstrlen(SETTING_FILTER_LIST),
 		SETTING_FILTER_LIST, lstrlen(SETTING_FILTER_LIST)) == CSTR_EQUAL)

@@ -11,28 +11,26 @@
 #include <MsXml2.h>
 #include <objbase.h>
 
-class CFilterDialog;
+class FilterDialog;
 
-class CFilterDialogPersistentSettings : public CDialogSettings
+class FilterDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CFilterDialogPersistentSettings();
-
-	static CFilterDialogPersistentSettings &GetInstance();
+	static FilterDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CFilterDialog;
+	friend FilterDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
 	static const TCHAR SETTING_FILTER_LIST[];
 
-	CFilterDialogPersistentSettings();
+	FilterDialogPersistentSettings();
 
-	CFilterDialogPersistentSettings(const CFilterDialogPersistentSettings &);
-	CFilterDialogPersistentSettings & operator=(const CFilterDialogPersistentSettings &);
+	FilterDialogPersistentSettings(const FilterDialogPersistentSettings &);
+	FilterDialogPersistentSettings & operator=(const FilterDialogPersistentSettings &);
 
 	void SaveExtraRegistrySettings(HKEY hKey);
 	void LoadExtraRegistrySettings(HKEY hKey);
@@ -43,30 +41,29 @@ private:
 	std::list<std::wstring>	m_FilterList;
 };
 
-class CFilterDialog : public CBaseDialog
+class FilterDialog : public BaseDialog
 {
 public:
 
-	CFilterDialog(HINSTANCE hInstance,int iResource,HWND hParent,IExplorerplusplus *pexpp);
-	~CFilterDialog();
+	FilterDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *pexpp);
 
 protected:
 
 	INT_PTR				OnInitDialog();
 	INT_PTR				OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR				OnClose();
-	INT_PTR				OnDestroy();
+
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
-	void				GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void				GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void				SaveState();
 
 	void				OnOk();
 	void				OnCancel();
 
-	IExplorerplusplus	*m_pexpp;
-	HICON				m_hDialogIcon;
+	IExplorerplusplus *m_pexpp;
 
-	CFilterDialogPersistentSettings	*m_pfdps;
+	FilterDialogPersistentSettings *m_persistentSettings;
 };

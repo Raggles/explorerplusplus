@@ -6,14 +6,13 @@
 
 #include "ApplicationToolbar.h"
 
-class CApplicationToolbar;
+class ApplicationToolbar;
 
-class CApplicationToolbarDropHandler : public IDropTarget
+class ApplicationToolbarDropHandler : public IDropTarget
 {
 public:
 
-	CApplicationToolbarDropHandler(HWND hToolbar, CApplicationToolbar *toolbar);
-	~CApplicationToolbarDropHandler();
+	ApplicationToolbarDropHandler(HWND hToolbar, ApplicationToolbar *toolbar);
 
 	/* IUnknown methods. */
 	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject);
@@ -34,7 +33,7 @@ private:
 
 	ULONG				m_RefCount;
 
-	CApplicationToolbar	*m_toolbar;
+	ApplicationToolbar	*m_toolbar;
 	HWND				m_hToolbar;
 
 	/* Drag and drop. */

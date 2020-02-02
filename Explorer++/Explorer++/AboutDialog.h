@@ -5,13 +5,13 @@
 #pragma once
 
 #include "../Helper/BaseDialog.h"
+#include <wil/resource.h>
 
-class CAboutDialog : public CBaseDialog
+class AboutDialog : public BaseDialog
 {
 public:
 
-	CAboutDialog(HINSTANCE hInstance,int iResource,HWND hParent);
-	~CAboutDialog();
+	AboutDialog(HINSTANCE hInstance, HWND hParent);
 
 protected:
 
@@ -22,5 +22,6 @@ protected:
 
 private:
 
-	HICON	m_hIcon;
+	wil::unique_hicon m_icon;
+	wil::unique_hicon m_mainIcon;
 };

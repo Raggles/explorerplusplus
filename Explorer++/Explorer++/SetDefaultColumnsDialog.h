@@ -6,10 +6,11 @@
 
 #include "CoreInterface.h"
 #include "ShellBrowser/FolderSettings.h"
-#include "ShellBrowser/iShellView.h"
+#include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ResizableDialog.h"
+#include <wil/resource.h>
 #include <unordered_map>
 
 enum FolderType_t
@@ -23,28 +24,26 @@ enum FolderType_t
 	FOLDER_TYPE_RECYCLE_BIN = 6
 };
 
-class CSetDefaultColumnsDialog;
+class SetDefaultColumnsDialog;
 
-class CSetDefaultColumnsDialogPersistentSettings : public CDialogSettings
+class SetDefaultColumnsDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CSetDefaultColumnsDialogPersistentSettings();
-
-	static CSetDefaultColumnsDialogPersistentSettings &GetInstance();
+	static SetDefaultColumnsDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CSetDefaultColumnsDialog;
+	friend SetDefaultColumnsDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
 	static const TCHAR SETTING_FOLDER_TYPE[];
 
-	CSetDefaultColumnsDialogPersistentSettings();
+	SetDefaultColumnsDialogPersistentSettings();
 
-	CSetDefaultColumnsDialogPersistentSettings(const CSetDefaultColumnsDialogPersistentSettings &);
-	CSetDefaultColumnsDialogPersistentSettings & operator=(const CSetDefaultColumnsDialogPersistentSettings &);
+	SetDefaultColumnsDialogPersistentSettings(const SetDefaultColumnsDialogPersistentSettings &);
+	SetDefaultColumnsDialogPersistentSettings & operator=(const SetDefaultColumnsDialogPersistentSettings &);
 
 	void			SaveExtraRegistrySettings(HKEY hKey);
 	void			LoadExtraRegistrySettings(HKEY hKey);
@@ -55,13 +54,11 @@ private:
 	FolderType_t	m_FolderType;
 };
 
-class CSetDefaultColumnsDialog : public CBaseDialog
+class SetDefaultColumnsDialog : public BaseDialog
 {
 public:
 
-	CSetDefaultColumnsDialog(HINSTANCE hInstance, int iResource, HWND hParent,
-		IExplorerplusplus *pexpp, FolderColumns &folderColumns);
-	~CSetDefaultColumnsDialog();
+	SetDefaultColumnsDialog(HINSTANCE hInstance, HWND hParent, FolderColumns &folderColumns);
 
 protected:
 
@@ -69,11 +66,10 @@ protected:
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnNotify(NMHDR *pnmhdr);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
 
 private:
 
-	void	GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void	SaveState();
 
 	void	OnOk();
@@ -87,14 +83,12 @@ private:
 
 	std::vector<Column_t>	&GetCurrentColumnList(FolderType_t FolderType);
 
-	IExplorerplusplus	*m_pexpp;
-
 	FolderColumns		&m_folderColumns;
 
 	std::unordered_map<int,FolderType_t>	m_FolderMap;
 	FolderType_t		m_PreviousFolderType;
 
-	HICON				m_hDialogIcon;
+	wil::unique_hicon	m_icon;
 
-	CSetDefaultColumnsDialogPersistentSettings	*m_psdcdps;
+	SetDefaultColumnsDialogPersistentSettings	*m_psdcdps;
 };

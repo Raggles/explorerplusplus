@@ -4,67 +4,104 @@
 
 #pragma once
 
+#include "BookmarkDropInfo.h"
+#include "BookmarkDropTargetWindow.h"
 #include "BookmarkHelper.h"
-#include "../Helper/Bookmark.h"
+#include "BookmarkItem.h"
+#include "BookmarkTree.h"
+#include "CoreInterface.h"
+#include "ResourceHelper.h"
+#include "SignalWrapper.h"
+#include "../Helper/DpiCompatibility.h"
+#include "../Helper/WindowSubclassWrapper.h"
+#include <boost/signals2.hpp>
+#include <wil/resource.h>
+#include <optional>
 #include <unordered_map>
+#include <unordered_set>
 
-class CBookmarkTreeView
+class BookmarkTreeView : private BookmarkDropTargetWindow
 {
-	friend LRESULT CALLBACK BookmarkTreeViewProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-	friend LRESULT CALLBACK BookmarkTreeViewParentProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-	friend LRESULT CALLBACK TreeViewEditProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-
 public:
 
-	CBookmarkTreeView(HWND hTreeView, HINSTANCE hInstance,
-		CBookmarkFolder *pAllBookmarks, const GUID &guidSelected,
-		const NBookmarkHelper::setExpansion_t &setExpansion);
-	~CBookmarkTreeView();
+	BookmarkTreeView(HWND hTreeView, HINSTANCE hInstance, IExplorerplusplus *expp,
+		BookmarkTree *bookmarkTree, const std::unordered_set<std::wstring> &setExpansion,
+		std::optional<std::wstring> guidSelected = std::nullopt);
 
-	CBookmarkFolder					&GetBookmarkFolderFromTreeView(HTREEITEM hItem);
+	BookmarkItem *GetBookmarkFolderFromTreeView(HTREEITEM hItem);
 
-	HTREEITEM						BookmarkFolderAdded(const CBookmarkFolder &ParentBookmarkFolder, const CBookmarkFolder &BookmarkFolder, std::size_t Position);
-	void							BookmarkFolderModified(const GUID &guid);
-	void							BookmarkFolderRemoved(const GUID &guid);
+	void CreateNewFolder();
+	void SelectFolder(const std::wstring &guid);
 
-	void							CreateNewFolder();
-	void							SelectFolder(const GUID &guid);
+	// Signals
+	SignalWrapper<BookmarkTreeView, void(BookmarkItem *bookmarkFolder)> selectionChangedSignal;
 
 private:
 
-	typedef std::unordered_map<GUID, HTREEITEM, NBookmarkHelper::GuidHash, NBookmarkHelper::GuidEq> ItemMap_t;
+	using ItemMap_t = std::unordered_map<std::wstring, HTREEITEM>;
 
-	static const UINT_PTR			SUBCLASS_ID = 0;
-	static const UINT_PTR			PARENT_SUBCLASS_ID = 0;
+	static inline const UINT_PTR SUBCLASS_ID = 0;
+	static inline const UINT_PTR PARENT_SUBCLASS_ID = 0;
 
-	LRESULT CALLBACK				TreeViewProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-	LRESULT CALLBACK				TreeViewParentProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-	LRESULT CALLBACK				TreeViewEditProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
+	static inline const double FOLDER_CENTRAL_RECT_INDENT_PERCENTAGE = 0.2;
 
-	void							SetupTreeView(const GUID &guidSelected, const NBookmarkHelper::setExpansion_t &setExpansion);
+	static LRESULT CALLBACK BookmarkTreeViewProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	LRESULT CALLBACK TreeViewProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
-	HTREEITEM						InsertFolderIntoTreeView(HTREEITEM hParent, const CBookmarkFolder &BookmarkFolder, std::size_t Position);
-	void							InsertFoldersIntoTreeViewRecursive(HTREEITEM hParent, const CBookmarkFolder &BookmarkFolder);
+	static LRESULT CALLBACK BookmarkTreeViewParentProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	LRESULT CALLBACK TreeViewParentProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
-	void							OnTvnKeyDown(NMTVKEYDOWN *pnmtvkd);
-	void							OnTreeViewRename();
-	void							OnTvnBeginLabelEdit();
-	BOOL							OnTvnEndLabelEdit(NMTVDISPINFO *pnmtvdi);
-	void							OnTvnDeleteItem(NMTREEVIEW *pnmtv);
+	static LRESULT CALLBACK TreeViewEditProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	LRESULT CALLBACK TreeViewEditProc(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
-	void							OnRClick(NMHDR *pnmhdr);
+	void SetupTreeView(const std::unordered_set<std::wstring> &setExpansion, std::optional<std::wstring> guidSelected);
 
-	HWND							m_hTreeView;
-	HIMAGELIST						m_himl;
+	void InsertFoldersIntoTreeViewRecursive(HTREEITEM hParent, BookmarkItem *bookmarkItem);
+	HTREEITEM InsertFolderIntoTreeView(HTREEITEM hParent, BookmarkItem *bookmarkFolder, int position);
 
-	HINSTANCE						m_instance;
+	void OnKeyDown(const NMTVKEYDOWN *pnmtvkd);
+	void OnTreeViewRename();
+	BOOL OnBeginLabelEdit(const NMTVDISPINFO *dispInfo);
+	BOOL OnEndLabelEdit(const NMTVDISPINFO *pnmtvdi);
+	void OnSelChanged(const NMTREEVIEW *treeView);
+	void OnBeginDrag(const NMTREEVIEW *treeView);
+	void OnDelete();
 
-	CBookmarkFolder					*m_pAllBookmarks;
+	void OnRClick(const NMHDR *pnmhdr);
 
-	std::unordered_map<UINT, GUID>	m_mapID;
-	ItemMap_t						m_mapItem;
-	UINT							m_uIDCounter;
+	void OnBookmarkItemAdded(BookmarkItem &bookmarkItem, size_t index);
+	void OnBookmarkItemUpdated(BookmarkItem &bookmarkItem, BookmarkItem::PropertyType propertyType);
+	void OnBookmarkItemMoved(BookmarkItem *bookmarkItem, const BookmarkItem *oldParent,
+		size_t oldIndex, const BookmarkItem *newParent, size_t newIndex);
+	void OnBookmarkItemPreRemoval(BookmarkItem &bookmarkItem);
 
-	bool							m_bNewFolderCreated;
-	GUID							m_NewFolderGUID;
+	HTREEITEM AddNewFolderToTreeView(BookmarkItem *bookmarkFolder);
+	size_t GetFolderRelativeIndex(BookmarkItem *bookmarkFolder) const;
+	void RemoveBookmarkItem(const BookmarkItem *bookmarkItem);
+
+	DropLocation GetDropLocation(const POINT &pt) override;
+	HTREEITEM FindNextItem(const POINT &ptClient) const;
+	void UpdateUiForDropLocation(const DropLocation &dropLocation) override;
+	void ResetDropUiState() override;
+	void RemoveInsertionMark();
+	void RemoveDropHighlight();
+
+	HWND m_hTreeView;
+	DpiCompatibility m_dpiCompat;
+	wil::unique_himagelist m_imageList;
+	IconImageListMapping m_imageListMappings;
+
+	HINSTANCE m_instance;
+
+	BookmarkTree *m_bookmarkTree;
+
+	ItemMap_t m_mapItem;
+
+	bool m_bNewFolderCreated;
+	std::wstring m_NewFolderGUID;
+
+	std::optional<HTREEITEM> m_previousDropItem;
+
+	std::vector<WindowSubclassWrapper> m_windowSubclasses;
+	std::vector<boost::signals2::scoped_connection> m_connections;
 };

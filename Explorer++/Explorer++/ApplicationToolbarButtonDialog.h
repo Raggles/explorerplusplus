@@ -8,12 +8,11 @@
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 
-class CApplicationToolbarButtonDialog : public CBaseDialog
+class ApplicationToolbarButtonDialog : public BaseDialog
 {
 public:
 
-	CApplicationToolbarButtonDialog(HINSTANCE hInstance,int iResource,HWND hParent,ApplicationButton_t *Button,bool IsNew);
-	~CApplicationToolbarButtonDialog();
+	ApplicationToolbarButtonDialog(HINSTANCE hInstance, HWND hParent, ApplicationButton_t *Button, bool IsNew);
 
 protected:
 

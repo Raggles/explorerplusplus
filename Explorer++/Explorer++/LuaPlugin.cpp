@@ -4,7 +4,8 @@
 
 #include "stdafx.h"
 #include "LuaPlugin.h"
-#include "APIBinding.h"
+#include "ApiBinding.h"
+#include "../ThirdParty/Sol/sol.hpp"
 
 int Plugins::LuaPlugin::idCounter = 1;
 
@@ -18,11 +19,6 @@ Plugins::LuaPlugin::LuaPlugin(const std::wstring &directory, const Manifest &man
 	m_id(idCounter++)
 {
 	BindAllApiMethods(m_id, m_lua, pluginInterface);
-}
-
-Plugins::LuaPlugin::~LuaPlugin()
-{
-
 }
 
 int Plugins::LuaPlugin::GetId() const

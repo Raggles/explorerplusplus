@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "CoreInterface.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ReferenceCount.h"
@@ -11,29 +12,27 @@
 #include <string>
 #include <unordered_map>
 
-class CSplitFileDialog;
+class SplitFileDialog;
 
-class CSplitFileDialogPersistentSettings : public CDialogSettings
+class SplitFileDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CSplitFileDialogPersistentSettings();
-
-	static CSplitFileDialogPersistentSettings &GetInstance();
+	static SplitFileDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CSplitFileDialog;
+	friend SplitFileDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
 	static const TCHAR SETTING_SIZE[];
 	static const TCHAR SETTING_SIZE_GROUP[];
 
-	CSplitFileDialogPersistentSettings();
+	SplitFileDialogPersistentSettings();
 
-	CSplitFileDialogPersistentSettings(const CSplitFileDialogPersistentSettings &);
-	CSplitFileDialogPersistentSettings & operator=(const CSplitFileDialogPersistentSettings &);
+	SplitFileDialogPersistentSettings(const SplitFileDialogPersistentSettings &);
+	SplitFileDialogPersistentSettings & operator=(const SplitFileDialogPersistentSettings &);
 
 	void			SaveExtraRegistrySettings(HKEY hKey);
 	void			LoadExtraRegistrySettings(HKEY hKey);
@@ -45,19 +44,19 @@ private:
 	std::wstring	m_strSplitGroup;
 };
 
-class CSplitFile : public CReferenceCount
+class SplitFile : public ReferenceCount
 {
 public:
 	
-	CSplitFile(HWND hDlg,std::wstring strFullFilename,std::wstring strOutputFilename,std::wstring strOutputDirectory,UINT uSplitSize);
-	~CSplitFile();
+	SplitFile(HWND hDlg,std::wstring strFullFilename,std::wstring strOutputFilename,std::wstring strOutputDirectory,UINT uSplitSize);
+	~SplitFile();
 
-	void	SplitFile();
+	void	Split();
 	void	StopSplitting();
 
 private:
 
-	void				SplitFileInternal(HANDLE hInputFile,const LARGE_INTEGER &lFileSize);
+	void				SplitInternal(HANDLE hInputFile,const LARGE_INTEGER &lFileSize);
 	void				ProcessFilename(int nSplitsMade,std::wstring &strOutputFullFilename);
 
 	HWND				m_hDlg;
@@ -71,12 +70,13 @@ private:
 	bool				m_bStopSplitting;
 };
 
-class CSplitFileDialog : public CBaseDialog
+class SplitFileDialog : public BaseDialog
 {
 public:
 
-	CSplitFileDialog(HINSTANCE hInstance,int iResource,HWND hParent,std::wstring strFullFilename);
-	~CSplitFileDialog();
+	SplitFileDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
+		std::wstring strFullFilename);
+	~SplitFileDialog();
 
 protected:
 
@@ -90,6 +90,8 @@ protected:
 	void	SaveState();
 
 	INT_PTR	OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam);
+
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
@@ -124,19 +126,21 @@ private:
 	void	OnChangeOutputDirectory();
 	void	OnSplitFinished();
 
-	std::wstring	m_strFullFilename;
-	bool			m_bSplittingFile;
-	bool			m_bStopSplitting;
+	IExplorerplusplus *m_expp;
 
-	std::unordered_map<int,SizeType_t>	m_SizeMap;
+	std::wstring m_strFullFilename;
+	bool m_bSplittingFile;
+	bool m_bStopSplitting;
 
-	CSplitFile		*m_pSplitFile;
-	HFONT			m_hHelperTextFont;
+	std::unordered_map<int,SizeType_t> m_SizeMap;
 
-	TCHAR			m_szOk[32];
-	UINT			m_uElapsedTime;
+	SplitFile *m_pSplitFile;
+	HFONT m_hHelperTextFont;
 
-	ErrorType_t		m_CurrentError;
+	TCHAR m_szOk[32];
+	UINT m_uElapsedTime;
 
-	CSplitFileDialogPersistentSettings	*m_psfdps;
+	ErrorType_t m_CurrentError;
+
+	SplitFileDialogPersistentSettings *m_persistentSettings;
 };

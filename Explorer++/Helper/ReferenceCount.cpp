@@ -6,23 +6,18 @@
 #include "ReferenceCount.h"
 
 
-CReferenceCount::CReferenceCount() :
+ReferenceCount::ReferenceCount() :
 m_RefCount(1)
 {
 	
 }
 
-CReferenceCount::~CReferenceCount()
-{
-
-}
-
-ULONG CReferenceCount::AddRef()
+ULONG ReferenceCount::AddRef()
 {
 	return InterlockedIncrement(&m_RefCount);
 }
 
-ULONG CReferenceCount::Release()
+ULONG ReferenceCount::Release()
 {
 	LONG lCount = InterlockedDecrement(&m_RefCount);
 

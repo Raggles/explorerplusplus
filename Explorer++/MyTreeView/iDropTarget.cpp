@@ -4,15 +4,19 @@
 
 #include "stdafx.h"
 #include "MyTreeView.h"
-#include "MyTreeViewInternal.h"
-#include "../Helper/Helper.h"
 #include "../Helper/DropHandler.h"
-#include "../Helper/ShellHelper.h"
+#include "../Helper/Helper.h"
 #include "../Helper/Macros.h"
+#include "../Helper/ShellHelper.h"
 
+const LONG MIN_X_POS = 10;
+const LONG MIN_Y_POS = 10;
 
-#define MIN_X_POS	10
-#define MIN_Y_POS	10
+const UINT DRAGEXPAND_TIMER_ID = 1;
+const UINT DRAGEXPAND_TIMER_ELAPSE = 800;
+
+const UINT DRAGSCROLL_TIMER_ID = 2;
+const UINT DRAGSCROLL_TIMER_ELAPSE = 1000;
 
 void CALLBACK DragExpandTimerProc(HWND hwnd,UINT uMsg,
 UINT_PTR idEvent,DWORD dwTime);
@@ -22,7 +26,7 @@ UINT_PTR idEvent,DWORD dwTime);
 HTREEITEM	g_hExpand = NULL;
 BOOL		g_bAllowScroll = FALSE;
 
-HRESULT _stdcall CMyTreeView::DragEnter(IDataObject *pDataObject,
+HRESULT _stdcall MyTreeView::DragEnter(IDataObject *pDataObject,
 DWORD grfKeyState,POINTL pt,DWORD *pdwEffect)
 {
 	m_pDataObject = pDataObject;
@@ -30,7 +34,7 @@ DWORD grfKeyState,POINTL pt,DWORD *pdwEffect)
 	m_bDragging = TRUE;
 
 	std::list<FORMATETC> ftcList;
-	CDropHandler::GetDropFormats(ftcList);
+	DropHandler::GetDropFormats(ftcList);
 
 	BOOL bDataAccept = FALSE;
 
@@ -64,9 +68,9 @@ DWORD grfKeyState,POINTL pt,DWORD *pdwEffect)
 		DragScrollTimerProc);
 
 	if(grfKeyState & MK_LBUTTON)
-		m_DragType = DRAG_TYPE_LEFTCLICK;
+		m_DragType = DragType::LeftClick;
 	else if(grfKeyState & MK_RBUTTON)
-		m_DragType = DRAG_TYPE_RIGHTCLICK;
+		m_DragType = DragType::RightClick;
 
 	/* Notify the drop target helper that an object has been dragged into
 	the window. */
@@ -86,7 +90,7 @@ void CALLBACK DragScrollTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwT
 	KillTimer(hwnd,DRAGSCROLL_TIMER_ID);
 }
 
-DWORD CMyTreeView::GetCurrentDragEffect(DWORD grfKeyState,DWORD dwCurrentEffect,POINTL *ptl)
+DWORD MyTreeView::GetCurrentDragEffect(DWORD grfKeyState,DWORD dwCurrentEffect,POINTL *ptl)
 {
 	TVHITTESTINFO	tvhi;
 	HTREEITEM		hItem;
@@ -125,7 +129,7 @@ void CALLBACK DragExpandTimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwT
 	KillTimer(hwnd,DRAGEXPAND_TIMER_ID);
 }
 
-HRESULT _stdcall CMyTreeView::DragOver(DWORD grfKeyState,POINTL pt,DWORD *pdwEffect)
+HRESULT _stdcall MyTreeView::DragOver(DWORD grfKeyState,POINTL pt,DWORD *pdwEffect)
 {
 	TVHITTESTINFO tvht;
 	RECT rc;
@@ -183,13 +187,12 @@ if the files come from different drives,
 whether this operation is classed as a copy
 or move is only based on the location of the
 first file). */
-BOOL CMyTreeView::CheckItemLocations(IDataObject *pDataObject,HTREEITEM hItem,
+BOOL MyTreeView::CheckItemLocations(IDataObject *pDataObject,HTREEITEM hItem,
 int iDroppedItem)
 {
 	FORMATETC	ftc;
 	STGMEDIUM	stg;
 	DROPFILES	*pdf = NULL;
-	LPITEMIDLIST	pidlDest = NULL;
 	TCHAR		szDestDirectory[MAX_PATH];
 	TCHAR		szFullFileName[MAX_PATH];
 	HRESULT		hr;
@@ -215,19 +218,17 @@ int iDroppedItem)
 
 			if(iDroppedItem < nDroppedFiles)
 			{
-				pidlDest = BuildPath(hItem);
+				auto pidlDest = GetItemPidl(hItem);
 
-				if(pidlDest != NULL)
+				if(pidlDest)
 				{
 					/* Determine the name of the first dropped file. */
 					DragQueryFile((HDROP)pdf,iDroppedItem,szFullFileName,
 						SIZEOF_ARRAY(szFullFileName));
 
-					GetDisplayName(pidlDest,szDestDirectory,SIZEOF_ARRAY(szDestDirectory),SHGDN_FORPARSING);
+					GetDisplayName(pidlDest.get(),szDestDirectory,SIZEOF_ARRAY(szDestDirectory),SHGDN_FORPARSING);
 
 					bOnSameDrive = PathIsSameRoot(szDestDirectory,szFullFileName);
-
-					CoTaskMemFree(pidlDest);
 				}
 			}
 
@@ -238,7 +239,7 @@ int iDroppedItem)
 	return bOnSameDrive;
 }
 
-HRESULT _stdcall CMyTreeView::DragLeave(void)
+HRESULT _stdcall MyTreeView::DragLeave(void)
 {
 	RestoreState();
 
@@ -249,17 +250,14 @@ HRESULT _stdcall CMyTreeView::DragLeave(void)
 	return S_OK;
 }
 
-HRESULT _stdcall CMyTreeView::Drop(IDataObject *pDataObject,DWORD grfKeyState,
+HRESULT _stdcall MyTreeView::Drop(IDataObject *pDataObject,DWORD grfKeyState,
 POINTL pt,DWORD *pdwEffect)
 {
-	TVHITTESTINFO	tvht;
-	LPITEMIDLIST	pidlDirectory = NULL;
-	TCHAR			szDestDirectory[MAX_PATH + 1];
-
 	KillTimer(m_hTreeView,DRAGEXPAND_TIMER_ID);
 
-	tvht.pt.x	= pt.x;
-	tvht.pt.y	= pt.y;
+	TVHITTESTINFO tvht;
+	tvht.pt.x = pt.x;
+	tvht.pt.y = pt.y;
 
 	ScreenToClient(m_hTreeView,(LPPOINT)&tvht.pt);
 	TreeView_HitTest(m_hTreeView,&tvht);
@@ -267,17 +265,16 @@ POINTL pt,DWORD *pdwEffect)
 	/* Is the mouse actually over an item? */
 	if(!(tvht.flags & LVHT_NOWHERE) && (tvht.hItem != NULL) && m_bDataAccept)
 	{
-		pidlDirectory = BuildPath(tvht.hItem);
+		auto pidlDirectory = GetItemPidl(tvht.hItem);
 
-		GetDisplayName(pidlDirectory,szDestDirectory,SIZEOF_ARRAY(szDestDirectory),SHGDN_FORPARSING);
+		TCHAR szDestDirectory[MAX_PATH];
+		GetDisplayName(pidlDirectory.get(),szDestDirectory,SIZEOF_ARRAY(szDestDirectory),SHGDN_FORPARSING);
 
-		CDropHandler *pDropHandler = CDropHandler::CreateNew();
+		DropHandler *pDropHandler = DropHandler::CreateNew();
 		pDropHandler->Drop(pDataObject,
 			grfKeyState,pt,pdwEffect,m_hTreeView,
 			m_DragType,szDestDirectory,NULL,FALSE);
 		pDropHandler->Release();
-
-		CoTaskMemFree(pidlDirectory);
 	}
 
 	RestoreState();
@@ -287,7 +284,7 @@ POINTL pt,DWORD *pdwEffect)
 	return S_OK;
 }
 
-void CMyTreeView::RestoreState(void)
+void MyTreeView::RestoreState(void)
 {
 	TreeView_Select(m_hTreeView,NULL,TVGN_DROPHILITE);
 

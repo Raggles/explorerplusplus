@@ -11,7 +11,7 @@
 
 namespace
 {
-	std::unordered_map<HWND,CBaseDialog *>	g_WindowMap;
+	std::unordered_map<HWND,BaseDialog *>	g_WindowMap;
 }
 
 INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
@@ -32,8 +32,8 @@ INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lPa
 			correct object.
 			May also use thunks - see
 			http://www.hackcraft.net/cpp/windowsThunk/ */
-			g_WindowMap.insert(std::unordered_map<HWND,CBaseDialog *>::
-				value_type(hDlg,reinterpret_cast<CBaseDialog *>(lParam)));
+			g_WindowMap.insert(std::unordered_map<HWND,BaseDialog *>::
+				value_type(hDlg,reinterpret_cast<BaseDialog *>(lParam)));
 		}
 		break;
 	}
@@ -48,32 +48,44 @@ INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lPa
 	return 0;
 }
 
-INT_PTR CALLBACK CBaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
+INT_PTR CALLBACK BaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
 	WPARAM wParam,LPARAM lParam)
 {
 	switch(uMsg)
 	{
 	case WM_INITDIALOG:
-		m_hDlg = hDlg;
-
-		if(m_bResizable)
 		{
-			RECT rcMain;
-			GetWindowRect(m_hDlg,&rcMain);
+			m_hDlg = hDlg;
 
-			/* Assume that the current width and height of
-			the dialog are the minimum width and height.
-			Note that at this point, the dialog has NOT
-			been initialized in any way, so it will not
-			have had a chance to be resized yet. */
-			m_iMinWidth = GetRectWidth(&rcMain);
-			m_iMinHeight = GetRectHeight(&rcMain);
+			if (m_bResizable)
+			{
+				RECT rcMain;
+				GetWindowRect(m_hDlg, &rcMain);
 
-			std::list<CResizableDialog::Control_t> ControlList;
-			m_dsc = DIALOG_SIZE_CONSTRAINT_NONE;
-			GetResizableControlInformation(m_dsc,ControlList);
+				/* Assume that the current width and height of
+				the dialog are the minimum width and height.
+				Note that at this point, the dialog has NOT
+				been initialized in any way, so it will not
+				have had a chance to be resized yet. */
+				m_iMinWidth = GetRectWidth(&rcMain);
+				m_iMinHeight = GetRectHeight(&rcMain);
 
-			m_prd = std::unique_ptr<CResizableDialog>(new CResizableDialog(m_hDlg, ControlList));
+				std::list<ResizableDialog::Control_t> ControlList;
+				m_dsc = DIALOG_SIZE_CONSTRAINT_NONE;
+				GetResizableControlInformation(m_dsc, ControlList);
+
+				m_prd = std::unique_ptr<ResizableDialog>(new ResizableDialog(m_hDlg, ControlList));
+			}
+
+			UINT dpi = m_dpiCompat.GetDpiForWindow(m_hDlg);
+			int iconWidth = m_dpiCompat.GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+			int iconHeight = m_dpiCompat.GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+			m_icon = GetDialogIcon(iconWidth, iconHeight);
+
+			if (m_icon)
+			{
+				SetClassLongPtr(m_hDlg, GCLP_HICONSM, reinterpret_cast<LONG_PTR>(m_icon.get()));
+			}
 		}
 		break;
 
@@ -134,7 +146,15 @@ INT_PTR CALLBACK CBaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
 	return ForwardMessage(hDlg,uMsg,wParam,lParam);
 }
 
-INT_PTR CBaseDialog::GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+wil::unique_hicon BaseDialog::GetDialogIcon(int iconWidth, int iconHeight) const
+{
+	UNREFERENCED_PARAMETER(iconWidth);
+	UNREFERENCED_PARAMETER(iconHeight);
+
+	return nullptr;
+}
+
+INT_PTR BaseDialog::GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(hwnd);
 	UNREFERENCED_PARAMETER(uMsg);
@@ -144,9 +164,9 @@ INT_PTR CBaseDialog::GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPA
 	return 0;
 }
 
-CBaseDialog::CBaseDialog(HINSTANCE hInstance,int iResource,
+BaseDialog::BaseDialog(HINSTANCE hInstance,int iResource,
 	HWND hParent,bool bResizable) :
-CMessageForwarder(),
+MessageForwarder(),
 m_hInstance(hInstance),
 m_iResource(iResource),
 m_hParent(hParent),
@@ -156,17 +176,12 @@ m_bResizable(bResizable)
 	m_bShowingModelessDialog = FALSE;
 }
 
-CBaseDialog::~CBaseDialog()
-{
-
-}
-
-HINSTANCE CBaseDialog::GetInstance() const
+HINSTANCE BaseDialog::GetInstance() const
 {
 	return m_hInstance;
 }
 
-INT_PTR CBaseDialog::ShowModalDialog()
+INT_PTR BaseDialog::ShowModalDialog()
 {
 	/* Explicitly disallow the creation of another
 	dialog from this object while a modeless dialog
@@ -180,7 +195,7 @@ INT_PTR CBaseDialog::ShowModalDialog()
 		m_hParent,BaseDialogProcStub,reinterpret_cast<LPARAM>(this));
 }
 
-HWND CBaseDialog::ShowModelessDialog(IModelessDialogNotification *pmdn)
+HWND BaseDialog::ShowModelessDialog(IModelessDialogNotification *pmdn)
 {
 	if(m_bShowingModelessDialog)
 	{
@@ -202,14 +217,14 @@ HWND CBaseDialog::ShowModelessDialog(IModelessDialogNotification *pmdn)
 	return hDlg;
 }
 
-void CBaseDialog::GetResizableControlInformation(DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+void BaseDialog::GetResizableControlInformation(DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
 {
 	UNREFERENCED_PARAMETER(dsc);
 	UNREFERENCED_PARAMETER(ControlList);
 }
 
-void CBaseDialog::SaveState()
+void BaseDialog::SaveState()
 {
 
 }

@@ -8,34 +8,33 @@
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ResizableDialog.h"
+#include <wil/resource.h>
 #include <MsXml2.h>
 #include <objbase.h>
 #include <list>
 #include <string>
 
-class CWildcardSelectDialog;
+class WildcardSelectDialog;
 
-class CWildcardSelectDialogPersistentSettings : public CDialogSettings
+class WildcardSelectDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CWildcardSelectDialogPersistentSettings();
-
-	static			CWildcardSelectDialogPersistentSettings &GetInstance();
+	static			WildcardSelectDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend			CWildcardSelectDialog;
+	friend			WildcardSelectDialog;
 
 	static const	TCHAR SETTINGS_KEY[];
 
 	static const	TCHAR SETTING_PATTERN_LIST[];
 	static const	TCHAR SETTING_CURRENT_TEXT[];
 
-	CWildcardSelectDialogPersistentSettings();
+	WildcardSelectDialogPersistentSettings();
 
-	CWildcardSelectDialogPersistentSettings(const CWildcardSelectDialogPersistentSettings &);
-	CWildcardSelectDialogPersistentSettings & operator=(const CWildcardSelectDialogPersistentSettings &);
+	WildcardSelectDialogPersistentSettings(const WildcardSelectDialogPersistentSettings &);
+	WildcardSelectDialogPersistentSettings & operator=(const WildcardSelectDialogPersistentSettings &);
 
 	void			SaveExtraRegistrySettings(HKEY hKey);
 	void			LoadExtraRegistrySettings(HKEY hKey);
@@ -47,23 +46,21 @@ private:
 	std::list<std::wstring>	m_PatternList;
 };
 
-class CWildcardSelectDialog : public CBaseDialog
+class WildcardSelectDialog : public BaseDialog
 {
 public:
 
-	CWildcardSelectDialog(HINSTANCE hInstance,int iResource,HWND hParent,BOOL bSelect,IExplorerplusplus *pexpp);
-	~CWildcardSelectDialog();
+	WildcardSelectDialog(HINSTANCE hInstance, HWND hParent, BOOL bSelect, IExplorerplusplus *pexpp);
 
 protected:
 
 	INT_PTR	OnInitDialog();
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
 
 private:
 
-	void				GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void				GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void				SaveState();
 
 	void				OnOk();
@@ -73,7 +70,7 @@ private:
 	IExplorerplusplus	*m_pexpp;
 	BOOL				m_bSelect;
 
-	HICON				m_hDialogIcon;
+	wil::unique_hicon	m_icon;
 
-	CWildcardSelectDialogPersistentSettings	*m_pwsdps;
+	WildcardSelectDialogPersistentSettings	*m_pwsdps;
 };

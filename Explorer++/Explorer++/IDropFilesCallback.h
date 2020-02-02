@@ -7,12 +7,11 @@
 #include "CoreInterface.h"
 #include "../Helper/DropHandler.h"
 
-class CDropFilesCallback : public IDropFilesCallback
+class DropFilesCallback : public IDropFilesCallback
 {
 public:
 
-	CDropFilesCallback(IExplorerplusplus *pexpp);
-	~CDropFilesCallback();
+	DropFilesCallback(IExplorerplusplus *pexpp);
 
 	/* IUnknown methods. */
 	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject);

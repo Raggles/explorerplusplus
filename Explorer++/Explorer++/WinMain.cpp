@@ -22,6 +22,7 @@
 #include "../Helper/ProcessHelper.h"
 #include "../ThirdParty/CLI11/CLI11.hpp"
 #include <boost/scope_exit.hpp>
+#include <wil/resource.h>
 
 #pragma warning(disable:4459) // declaration of 'boost_scope_exit_aux_args' hides global declaration
 
@@ -140,28 +141,12 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 	version. */
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	HMODULE			hRichEditLib;
-	HWND			hwnd;
-	HANDLE			hMutex = NULL;
-	MSG				msg;
-	LONG			res;
-	BOOL			bExit = FALSE;
-
-	if (!IsWindowsVistaOrGreater())
-	{
-		MessageBox(NULL,
-			_T("This application needs at least Windows Vista or above to run properly."),
-			NExplorerplusplus::APP_NAME, MB_ICONERROR | MB_OK);
-
-		return 0;
-	}
-
 	bool enableLogging =
 #ifdef _DEBUG
 		true;
 #else
 		false;
-#endif;
+#endif
 
 	boost::log::core::get()->set_logging_enabled(enableLogging);
 
@@ -172,7 +157,20 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 	ccEx.dwICC	= dwControlClasses;
 	InitCommonControlsEx(&ccEx);
 
-	OleInitialize(NULL);
+	auto oleCleanup = wil::OleInitialize_failfast();
+
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR gdiplusToken;
+	Gdiplus::Status status = Gdiplus::GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr);
+
+	if (status != Gdiplus::Status::Ok)
+	{
+		return 0;
+	}
+
+	auto gdiplusCleanup = wil::scope_exit([gdiplusToken] {
+		Gdiplus::GdiplusShutdown(gdiplusToken);
+	});
 
 	bool consoleAttached = Console::AttachParentConsole();
 
@@ -192,17 +190,17 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 	InitializeLogging(NExplorerplusplus::LOG_FILENAME);
 
+	bool shouldExit = false;
+
 	/* Can't open folders that are children of the
 	control panel. If the command line only refers
 	to folders that are children of the control panel,
 	pass those folders to Windows Explorer, then exit. */
 	if(g_commandLineDirectories.size() > 0)
 	{
-		LPITEMIDLIST pidlControlPanel = NULL;
-		LPITEMIDLIST pidl = NULL;
-
+		unique_pidl_absolute pidlControlPanel;
 		HRESULT hr = SHGetFolderLocation(NULL,
-			CSIDL_CONTROLS,NULL,0,&pidlControlPanel);
+			CSIDL_CONTROLS,NULL,0,wil::out_param(pidlControlPanel));
 
 		if(SUCCEEDED(hr))
 		{
@@ -212,38 +210,34 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 			while(itr != g_commandLineDirectories.end())
 			{
-				/* This could fail on a 64-bit version of
-				Vista or Windows 7 if the executable is 32-bit,
-				and the folder is 64-bit specific (as is the
-				case with some of the folders under the control
-				panel). */
-				hr = GetIdlFromParsingName(itr->c_str(),&pidl);
+				/* This could fail on a 64-bit version of Windows if the
+				executable is 32-bit, and the folder is 64-bit specific (as is
+				the case with some of the folders under the control panel). */
+				unique_pidl_absolute pidl;
+				hr = SHParseDisplayName(itr->c_str(), nullptr, wil::out_param(pidl), 0, nullptr);
 
 				bControlPanelChild = FALSE;
 
 				if(SUCCEEDED(hr))
 				{
-					if(ILIsParent(pidlControlPanel,pidl,FALSE) &&
-						!CompareIdls(pidlControlPanel,pidl))
+					if(ILIsParent(pidlControlPanel.get(),pidl.get(),FALSE) &&
+						!CompareIdls(pidlControlPanel.get(),pidl.get()))
 					{
 						bControlPanelChild = TRUE;
 					}
 					else
 					{
-						LPITEMIDLIST pidlControlPanelCategory = NULL;
-
-						hr = GetIdlFromParsingName(CONTROL_PANEL_CATEGORY_VIEW,
-							&pidlControlPanelCategory);
+						unique_pidl_absolute pidlControlPanelCategory;
+						hr = SHParseDisplayName(CONTROL_PANEL_CATEGORY_VIEW, nullptr,
+							wil::out_param(pidlControlPanelCategory), 0, nullptr);
 
 						if (SUCCEEDED(hr))
 						{
-							if (ILIsParent(pidlControlPanelCategory, pidl, FALSE) &&
-								!CompareIdls(pidlControlPanelCategory, pidl))
+							if (ILIsParent(pidlControlPanelCategory.get(), pidl.get(), FALSE) &&
+								!CompareIdls(pidlControlPanelCategory.get(), pidl.get()))
 							{
 								bControlPanelChild = TRUE;
 							}
-
-							CoTaskMemFree(pidlControlPanelCategory);
 						}
 					}
 
@@ -262,8 +256,6 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 						itr = g_commandLineDirectories.erase(itr);
 					}
-
-					CoTaskMemFree(pidl);
 				}
 
 
@@ -275,14 +267,12 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 			if(g_commandLineDirectories.size() == 0)
 			{
-				bExit = TRUE;
+				shouldExit = true;
 			}
-
-			CoTaskMemFree(pidlControlPanel);
 		}
 	}
 
-	if(bExit)
+	if(shouldExit)
 	{
 		return 0;
 	}
@@ -306,7 +296,7 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 	if the first instance is run, and multiple instances are allowed,
 	and then disallowed, still need to be able to load back to the
 	original instance. */
-	hMutex = CreateMutex(NULL,TRUE,_T("Explorer++"));
+	wil::unique_mutex applicationMutex(CreateMutex(NULL,TRUE,_T("Explorer++")));
 
 	if(!bAllowMultipleInstances)
 	{
@@ -343,24 +333,20 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 				SetForegroundWindow(hPrev);
 				ShowWindow(hPrev,SW_RESTORE);
-				CloseHandle(hMutex);
 				return 0;
 			}
 		}
 	}
 
 	/* This dll is needed to create a richedit control. */
-	hRichEditLib = LoadLibrary(_T("Riched20.dll"));
+	wil::unique_hmodule richEditLib(LoadLibrary(_T("Riched20.dll")));
 
-	res = RegisterMainWindowClass(hInstance);
+	LONG res = RegisterMainWindowClass(hInstance);
 
 	if(res == 0)
 	{
 		MessageBox(NULL,_T("Could not register class"),NExplorerplusplus::APP_NAME,
 			MB_OK|MB_ICONERROR);
-
-		FreeLibrary(hRichEditLib);
-		OleUninitialize();
 
 		return 0;
 	}
@@ -371,7 +357,7 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 
 	/* Create the main window. This window will act as a
 	container for all child windows created. */
-	hwnd = CreateWindow(
+	HWND hwnd = CreateWindow(
 	NExplorerplusplus::CLASS_NAME,
 	NExplorerplusplus::APP_NAME,
 	WS_OVERLAPPEDWINDOW,
@@ -388,9 +374,6 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 	{
 		MessageBox(NULL,_T("Could not create main window."),NExplorerplusplus::APP_NAME,
 			MB_OK|MB_ICONERROR);
-
-		FreeLibrary(hRichEditLib);
-		OleUninitialize();
 
 		return 0;
 	}
@@ -450,6 +433,8 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 	g_hwndOptions = NULL;
 	g_hwndManageBookmarks = NULL;
 
+	MSG msg;
+
 	/* Enter the message loop... */
 	while(GetMessage(&msg,NULL,0,0) > 0)
 	{
@@ -474,12 +459,6 @@ int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
 			g_hwndOptions = NULL;
 		}
 	}
-
-	FreeLibrary(hRichEditLib);
-	OleUninitialize();
-
-	if(hMutex != NULL)
-		CloseHandle(hMutex);
 
 	return (int)msg.wParam;
 }

@@ -9,23 +9,18 @@
 #include "ModelessDialogs.h"
 
 
-CModelessDialogNotification::CModelessDialogNotification() :
+ModelessDialogNotification::ModelessDialogNotification() :
 m_RefCount(1)
 {
 
 }
 
-CModelessDialogNotification::~CModelessDialogNotification()
-{
-
-}
-
-ULONG CModelessDialogNotification::AddRef(void)
+ULONG ModelessDialogNotification::AddRef(void)
 {
 	return ++m_RefCount;
 }
 
-ULONG CModelessDialogNotification::Release(void)
+ULONG ModelessDialogNotification::Release(void)
 {
 	m_RefCount--;
 	
@@ -38,7 +33,7 @@ ULONG CModelessDialogNotification::Release(void)
 	return m_RefCount;
 }
 
-void CModelessDialogNotification::OnModelessDialogDestroy(int iResource)
+void ModelessDialogNotification::OnModelessDialogDestroy(int iResource)
 {
 	switch(iResource)
 	{

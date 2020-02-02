@@ -5,39 +5,30 @@
 #include "stdafx.h"
 #include "SelectColumnsDialog.h"
 #include "Explorer++_internal.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
-#include "ShellBrowser/iShellView.h"
+#include "ResourceHelper.h"
+#include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 #include <algorithm>
 #include <functional>
 
+const TCHAR SelectColumnsDialogPersistentSettings::SETTINGS_KEY[] = _T("SelectColumns");
 
-const TCHAR CSelectColumnsDialogPersistentSettings::SETTINGS_KEY[] = _T("SelectColumns");
-
-CSelectColumnsDialog::CSelectColumnsDialog(HINSTANCE hInstance,
-	int iResource,HWND hParent,IExplorerplusplus *pexpp,
-	TabContainer *tabContainer, TabInterface *ti) :
-	CBaseDialog(hInstance,iResource,hParent,true),
+SelectColumnsDialog::SelectColumnsDialog(HINSTANCE hInstance, HWND hParent,
+	IExplorerplusplus *pexpp, TabContainer *tabContainer) :
+	BaseDialog(hInstance, IDD_SELECTCOLUMNS, hParent, true),
 	m_pexpp(pexpp),
 	m_tabContainer(tabContainer),
-	m_ti(ti),
 	m_bColumnsSwapped(FALSE)
 {
-	m_pscdps = &CSelectColumnsDialogPersistentSettings::GetInstance();
+	m_persistentSettings = &SelectColumnsDialogPersistentSettings::GetInstance();
 }
 
-CSelectColumnsDialog::~CSelectColumnsDialog()
+INT_PTR SelectColumnsDialog::OnInitDialog()
 {
-
-}
-
-INT_PTR CSelectColumnsDialog::OnInitDialog()
-{
-	m_hDialogIcon = LoadIcon(GetModuleHandle(0),MAKEINTRESOURCE(IDI_MAIN));
-	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_hDialogIcon));
-
 	HWND hListView = GetDlgItem(m_hDlg,IDC_COLUMNS_LISTVIEW);
 	SetWindowTheme(hListView,L"Explorer",NULL);
 
@@ -51,14 +42,14 @@ INT_PTR CSelectColumnsDialog::OnInitDialog()
 	auto currentColumns = m_pexpp->GetActiveShellBrowser()->ExportCurrentColumns();
 
 	std::sort(currentColumns.begin(), currentColumns.end(),
-		std::bind(&CSelectColumnsDialog::CompareColumns, this, std::placeholders::_1, std::placeholders::_2));
+		std::bind(&SelectColumnsDialog::CompareColumns, this, std::placeholders::_1, std::placeholders::_2));
 
 	int iItem = 0;
 
 	for(const auto &column : currentColumns)
 	{
 		TCHAR szText[64];
-		LoadString(GetInstance(),CShellBrowser::LookupColumnNameStringIndex(column.id),
+		LoadString(GetInstance(),ShellBrowser::LookupColumnNameStringIndex(column.id),
 			szText,SIZEOF_ARRAY(szText));
 
 		LVITEM lvItem;
@@ -79,12 +70,17 @@ INT_PTR CSelectColumnsDialog::OnInitDialog()
 	NListView::ListView_SelectItem(hListView,0,TRUE);
 	SetFocus(hListView);
 
-	m_pscdps->RestoreDialogPosition(m_hDlg,true);
+	m_persistentSettings->RestoreDialogPosition(m_hDlg,true);
 
 	return 0;
 }
 
-bool CSelectColumnsDialog::CompareColumns(const Column_t &column1, const Column_t &column2)
+wil::unique_hicon SelectColumnsDialog::GetDialogIcon(int iconWidth, int iconHeight) const
+{
+	return m_pexpp->GetIconResourceLoader()->LoadIconFromPNGAndScale(Icon::SelectColumns, iconWidth, iconHeight);
+}
+
+bool SelectColumnsDialog::CompareColumns(const Column_t &column1, const Column_t &column2)
 {
 	if (column1.bChecked && column2.bChecked)
 	{
@@ -103,11 +99,11 @@ bool CSelectColumnsDialog::CompareColumns(const Column_t &column1, const Column_
 	}
 
 	TCHAR column1Text[64];
-	LoadString(GetInstance(), CShellBrowser::LookupColumnNameStringIndex(column1.id),
+	LoadString(GetInstance(), ShellBrowser::LookupColumnNameStringIndex(column1.id),
 		column1Text, SIZEOF_ARRAY(column1Text));
 
 	TCHAR column2Text[64];
-	LoadString(GetInstance(), CShellBrowser::LookupColumnNameStringIndex(column2.id),
+	LoadString(GetInstance(), ShellBrowser::LookupColumnNameStringIndex(column2.id),
 		column2Text, SIZEOF_ARRAY(column2Text));
 
 	int ret = StrCmpLogicalW(column1Text, column2Text);
@@ -122,70 +118,70 @@ bool CSelectColumnsDialog::CompareColumns(const Column_t &column1, const Column_
 	}
 }
 
-void CSelectColumnsDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+void SelectColumnsDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
 
-	CResizableDialog::Control_t Control;
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_COLUMNS_LISTVIEW;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COLUMNS_MOVEUP;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COLUMNS_MOVEDOWN;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_STATIC_DESCRIPTION;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COLUMNS_DESCRIPTION;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_COLUMNS_DESCRIPTION;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_STATIC_ETCHEDHORZ;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_STATIC_ETCHEDHORZ;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDOK;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDCANCEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 
-INT_PTR CSelectColumnsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR SelectColumnsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -211,10 +207,18 @@ INT_PTR CSelectColumnsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CSelectColumnsDialog::OnNotify(NMHDR *pnmhdr)
+INT_PTR SelectColumnsDialog::OnNotify(NMHDR *pnmhdr)
 {
 	switch(pnmhdr->code)
 	{
+	case LVN_ITEMCHANGING:
+	{
+		BOOL res = OnLvnItemChanging(reinterpret_cast<NMLISTVIEW *>(pnmhdr));
+		SetWindowLongPtr(m_hDlg, DWLP_MSGRESULT, res);
+		return TRUE;
+	}
+		break;
+
 	case LVN_ITEMCHANGED:
 		OnLvnItemChanged(reinterpret_cast<NMLISTVIEW *>(pnmhdr));
 		break;
@@ -223,26 +227,19 @@ INT_PTR CSelectColumnsDialog::OnNotify(NMHDR *pnmhdr)
 	return 0;
 }
 
-INT_PTR CSelectColumnsDialog::OnClose()
+INT_PTR SelectColumnsDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;
 }
 
-INT_PTR CSelectColumnsDialog::OnDestroy()
+void SelectColumnsDialog::SaveState()
 {
-	DestroyIcon(m_hDialogIcon);
-
-	return 0;
+	m_persistentSettings->SaveDialogPosition(m_hDlg);
+	m_persistentSettings->m_bStateSaved = TRUE;
 }
 
-void CSelectColumnsDialog::SaveState()
-{
-	m_pscdps->SaveDialogPosition(m_hDlg);
-	m_pscdps->m_bStateSaved = TRUE;
-}
-
-void CSelectColumnsDialog::OnOk()
+void SelectColumnsDialog::OnOk()
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_COLUMNS_LISTVIEW);
 	std::vector<Column_t> updatedColumns;
@@ -272,18 +269,60 @@ void CSelectColumnsDialog::OnOk()
 
 	if(m_bColumnsSwapped)
 	{
-		m_ti->RefreshTab(m_tabContainer->GetSelectedTab());
+		Tab &selectedTab = m_tabContainer->GetSelectedTab();
+		selectedTab.GetShellBrowser()->GetNavigationController()->Refresh();
 	}
 
 	EndDialog(m_hDlg,1);
 }
 
-void CSelectColumnsDialog::OnCancel()
+void SelectColumnsDialog::OnCancel()
 {
 	EndDialog(m_hDlg,0);
 }
 
-void CSelectColumnsDialog::OnLvnItemChanged(NMLISTVIEW *pnmlv)
+BOOL SelectColumnsDialog::OnLvnItemChanging(const NMLISTVIEW *nmlv)
+{
+	if (nmlv->uChanged != LVIF_STATE || (nmlv->uNewState & LVIS_STATEIMAGEMASK) == 0)
+	{
+		return FALSE;
+	}
+
+	BOOL checked = ((nmlv->uNewState & LVIS_STATEIMAGEMASK) >> 12) == 2;
+
+	if (checked)
+	{
+		return FALSE;
+	}
+
+	HWND listView = GetDlgItem(m_hDlg, IDC_COLUMNS_LISTVIEW);
+	int numItems = ListView_GetItemCount(listView);
+	bool anyOtherItemsChecked = false;
+
+	for (int i = 0; i < numItems; i++)
+	{
+		if (i == nmlv->iItem)
+		{
+			continue;
+		}
+
+		if (ListView_GetCheckState(listView, i))
+		{
+			anyOtherItemsChecked = true;
+			break;
+		}
+	}
+
+	if (!anyOtherItemsChecked)
+	{
+		// There should always be at least one column that's checked.
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+void SelectColumnsDialog::OnLvnItemChanged(const NMLISTVIEW *pnmlv)
 {
 	if(pnmlv->uNewState & LVIS_SELECTED)
 	{
@@ -295,7 +334,7 @@ void CSelectColumnsDialog::OnLvnItemChanged(NMLISTVIEW *pnmlv)
 		lvItem.iSubItem	= 0;
 		ListView_GetItem(hListView,&lvItem);
 
-		int iDescriptionStringIndex = CShellBrowser::LookupColumnDescriptionStringIndex(static_cast<int>(lvItem.lParam));
+		int iDescriptionStringIndex = ShellBrowser::LookupColumnDescriptionStringIndex(static_cast<int>(lvItem.lParam));
 
 		TCHAR szColumnDescription[128];
 		LoadString(GetInstance(),iDescriptionStringIndex,szColumnDescription,
@@ -304,7 +343,7 @@ void CSelectColumnsDialog::OnLvnItemChanged(NMLISTVIEW *pnmlv)
 	}
 }
 
-void CSelectColumnsDialog::OnMoveColumn(bool bUp)
+void SelectColumnsDialog::OnMoveColumn(bool bUp)
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_COLUMNS_LISTVIEW);
 
@@ -327,19 +366,14 @@ void CSelectColumnsDialog::OnMoveColumn(bool bUp)
 	}
 }
 
-CSelectColumnsDialogPersistentSettings::CSelectColumnsDialogPersistentSettings() :
-CDialogSettings(SETTINGS_KEY)
+SelectColumnsDialogPersistentSettings::SelectColumnsDialogPersistentSettings() :
+DialogSettings(SETTINGS_KEY)
 {
 
 }
 
-CSelectColumnsDialogPersistentSettings::~CSelectColumnsDialogPersistentSettings()
+SelectColumnsDialogPersistentSettings& SelectColumnsDialogPersistentSettings::GetInstance()
 {
-	
-}
-
-CSelectColumnsDialogPersistentSettings& CSelectColumnsDialogPersistentSettings::GetInstance()
-{
-	static CSelectColumnsDialogPersistentSettings mfdps;
+	static SelectColumnsDialogPersistentSettings mfdps;
 	return mfdps;
 }

@@ -1,6 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug-LLVM|Win32">
+      <Configuration>Debug-LLVM</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug-LLVM|x64">
+      <Configuration>Debug-LLVM</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -24,14 +32,14 @@
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(VisualStudioVersion)' == '14.0'">
-    <PlatformToolset>v140</PlatformToolset>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(VisualStudioVersion)' == '15.0'">
+  <PropertyGroup Condition="'$(VisualStudioVersion)' == '15.0' AND '$(Configuration)' != 'Debug-LLVM'">
     <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(VisualStudioVersion)' == '16.0'">
+  <PropertyGroup Condition="'$(VisualStudioVersion)' == '16.0' AND '$(Configuration)' != 'Debug-LLVM'">
     <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug-LLVM'">
+    <PlatformToolset>ClangCL</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -40,6 +48,13 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <UseOfAtl>false</UseOfAtl>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <UseOfAtl>false</UseOfAtl>
@@ -58,6 +73,13 @@
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>false</CLRSupport>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <UseOfAtl>false</UseOfAtl>
+    <CharacterSet>Unicode</CharacterSet>
+    <CLRSupport>false</CLRSupport>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -69,6 +91,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
@@ -77,16 +103,27 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
+  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Platform)\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">true</LinkIncremental>
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</PostBuildEventUseInBuild>
+    <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">true</PostBuildEventUseInBuild>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">true</LinkIncremental>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Platform)\$(Configuration)\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
@@ -94,11 +131,17 @@
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'" />
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'" />
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
@@ -121,7 +164,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4714</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -132,7 +175,59 @@
       <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>$(OutDir)Explorer++.pdb</ProgramDatabaseFile>
+      <GenerateMapFile>true</GenerateMapFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>
+      </OptimizeReferences>
+      <LinkTimeCodeGeneration>
+      </LinkTimeCodeGeneration>
+      <SetChecksum>false</SetChecksum>
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
+      <DataExecutionPrevention>true</DataExecutionPrevention>
+      <TargetMachine>MachineX86</TargetMachine>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+    <PostBuildEvent>
+      <Command>lib /NOLOGO /OUT:"$(TargetPath).lib" "$(ProjectDir)$(Platform)\$(Configuration)\*.obj"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BOOST_USE_WINDOWS_H;SOL_USE_BOOST;WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4714</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
+    <ResourceCompile>
+      <Culture>0x0c09</Culture>
+      <ResourceOutputFileName>$(IntDir)Explorer++Main.res</ResourceOutputFileName>
+      <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -176,7 +271,7 @@
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CallingConvention>Cdecl</CallingConvention>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4714</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -186,7 +281,60 @@
       <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AssemblyDebug>true</AssemblyDebug>
+      <ProgramDatabaseFile>$(OutDir)Explorer++.pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>
+      </OptimizeReferences>
+      <LinkTimeCodeGeneration>
+      </LinkTimeCodeGeneration>
+      <SetChecksum>false</SetChecksum>
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
+      <DataExecutionPrevention>true</DataExecutionPrevention>
+      <TargetMachine>MachineX64</TargetMachine>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>lib /NOLOGO /OUT:"$(TargetPath).lib" "$(ProjectDir)$(Platform)\$(Configuration)\*.obj"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>BOOST_USE_WINDOWS_H;SOL_USE_BOOST;WIN32;_DEBUG;_WINDOWS;WIN64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CallingConvention>Cdecl</CallingConvention>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4714</DisableSpecificWarnings>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
+    <ResourceCompile>
+      <Culture>0x0c09</Culture>
+      <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -225,7 +373,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4714</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -235,7 +383,7 @@
       <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
       <TypeLibraryFile>
       </TypeLibraryFile>
@@ -273,7 +421,7 @@
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ThirdParty\;$(ProjectDir)..\Lua\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4714</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -283,7 +431,7 @@
       <PreprocessorDefinitions Condition="'$(APPVEYOR_BUILD_NUMBER)'!=''">ENVIRONMENT_BUILD_NUMBER=$(APPVEYOR_BUILD_NUMBER);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>comctl32.lib;shell32.lib;gdiplus.lib;msimg32.lib;shlwapi.lib;psapi.lib;mpr.lib;uxtheme.lib;vfw32.lib;winmm.lib;urlmon.lib;wininet.lib;rpcrt4.lib;propsys.lib;msxml2.lib;dwmapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)Explorer++.exe</OutputFile>
       <TypeLibraryFile>shobjidl.idl</TypeLibraryFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -302,10 +450,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="AboutDialog.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="AboutDialog.cpp" />
     <ClCompile Include="AcceleratorParser.cpp" />
     <ClCompile Include="AcceleratorUpdater.cpp" />
     <ClCompile Include="AddBookmarkDialog.cpp" />
@@ -314,7 +459,20 @@
     <ClCompile Include="ApplicationToolbar.cpp" />
     <ClCompile Include="ApplicationToolbarButtonDialog.cpp" />
     <ClCompile Include="ApplicationToolbarDropHandler.cpp" />
-    <ClCompile Include="ArrangeMenuHandler.cpp" />
+    <ClCompile Include="BookmarkClipboard.cpp" />
+    <ClCompile Include="BookmarkContextMenu.cpp" />
+    <ClCompile Include="BookmarkDataExchange.cpp" />
+    <ClCompile Include="BookmarkDropInfo.cpp" />
+    <ClCompile Include="BookmarkDropTargetWindow.cpp" />
+    <ClCompile Include="BookmarkItem.cpp" />
+    <ClCompile Include="BookmarkRegistryStorage.cpp" />
+    <ClCompile Include="BookmarksMainMenu.cpp" />
+    <ClCompile Include="BookmarkMenuBuilder.cpp" />
+    <ClCompile Include="BookmarkTree.cpp" />
+    <ClCompile Include="BookmarkXmlStorage.cpp" />
+    <ClCompile Include="ShellBrowser\HistoryEntry.cpp" />
+    <ClCompile Include="ShellBrowser\NavigationController.cpp" />
+    <ClCompile Include="SortMenuHandler.cpp" />
     <ClCompile Include="BookmarkHandler.cpp" />
     <ClCompile Include="BookmarkHelper.cpp" />
     <ClCompile Include="BookmarkListView.cpp" />
@@ -342,12 +500,15 @@
     <ClCompile Include="HelpFileMissingDialog.cpp" />
     <ClCompile Include="HolderWindow.cpp" />
     <ClCompile Include="IDropFilesCallback.cpp" />
+    <ClCompile Include="IconResourceLoader.cpp" />
     <ClCompile Include="IModelessDialogNotification.cpp" />
     <ClCompile Include="INewMenuClient.cpp" />
     <ClCompile Include="Initialization.cpp" />
     <ClCompile Include="LoadSaveRegistry.cpp" />
     <ClCompile Include="LoadSaveXml.cpp" />
+    <ClCompile Include="MainMenu.cpp" />
     <ClCompile Include="MainWindow.cpp" />
+    <ClCompile Include="MenuHelper.cpp" />
     <ClCompile Include="PluginInterface.cpp" />
     <ClCompile Include="iServiceProvider.cpp" />
     <ClCompile Include="Language.cpp" />
@@ -367,7 +528,6 @@
     <ClCompile Include="Misc.cpp" />
     <ClCompile Include="MsgHandler.cpp" />
     <ClCompile Include="Navigation.cpp" />
-    <ClCompile Include="NewBookmarkFolderDialog.cpp" />
     <ClCompile Include="OptionsDialog.cpp" />
     <ClCompile Include="PluginCommandManager.cpp" />
     <ClCompile Include="PluginInitialization.cpp" />
@@ -383,19 +543,17 @@
     <ClCompile Include="SetDefaultColumnsDialog.cpp" />
     <ClCompile Include="SetFileAttributesDialog.cpp" />
     <ClCompile Include="ShellBrowser\BrowsingHandler.cpp" />
-    <ClCompile Include="ShellBrowser\CachedIcons.cpp" />
     <ClCompile Include="ShellBrowser\ColumnDataRetrieval.cpp" />
     <ClCompile Include="ShellBrowser\ColumnManager.cpp" />
     <ClCompile Include="ShellBrowser\DirectoryModificationHandler.cpp" />
     <ClCompile Include="ShellBrowser\GroupManager.cpp" />
     <ClCompile Include="ShellBrowser\HandleThumbnails.cpp" />
-    <ClCompile Include="ShellBrowser\IconRetrieval.cpp" />
     <ClCompile Include="ShellBrowser\iDropTarget.cpp" />
-    <ClCompile Include="ShellBrowser\iFolderView.cpp" />
-    <ClCompile Include="ShellBrowser\iPathManager.cpp" />
-    <ClCompile Include="ShellBrowser\iShellBrowser.cpp" />
+    <ClCompile Include="ShellBrowser\ShellBrowser.cpp" />
     <ClCompile Include="ShellBrowser\ListView.cpp" />
+    <ClCompile Include="ShellBrowser\SortHelper.cpp" />
     <ClCompile Include="ShellBrowser\SortManager.cpp" />
+    <ClCompile Include="ShellBrowser\TileView.cpp" />
     <ClCompile Include="ShellBrowser\ViewModes.cpp" />
     <ClCompile Include="ShellContextMenuHandler.cpp" />
     <ClCompile Include="SortModeHelper.cpp" />
@@ -403,12 +561,16 @@
     <ClCompile Include="StatusBar.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</MultiProcessorCompilation>
+      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">false</MultiProcessorCompilation>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</MultiProcessorCompilation>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</MultiProcessorCompilation>
+      <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">false</MultiProcessorCompilation>
       <MultiProcessorCompilation Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</MultiProcessorCompilation>
     </ClCompile>
     <ClCompile Include="Tab.cpp" />
@@ -420,6 +582,8 @@
     <ClCompile Include="TabMoved.cpp" />
     <ClCompile Include="TabProperties.cpp" />
     <ClCompile Include="TabRemoved.cpp" />
+    <ClCompile Include="TabRestorer.cpp" />
+    <ClCompile Include="TabRestorerUI.cpp" />
     <ClCompile Include="TabsApi.cpp" />
     <ClCompile Include="TabUpdated.cpp" />
     <ClCompile Include="TaskbarThumbnails.cpp" />
@@ -430,12 +594,7 @@
     <ClCompile Include="WildcardSelectDialog.cpp" />
     <ClCompile Include="WindowHandler.cpp" />
     <ClCompile Include="WinMain.cpp" />
-    <ClCompile Include="XMLSettings.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-      </PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      </PrecompiledHeader>
-    </ClCompile>
+    <ClCompile Include="XMLSettings.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\targetver.h" />
@@ -450,11 +609,23 @@
     <ClInclude Include="ApplicationToolbar.h" />
     <ClInclude Include="ApplicationToolbarButtonDialog.h" />
     <ClInclude Include="ApplicationToolbarDropHandler.h" />
+    <ClInclude Include="BookmarkClipboard.h" />
+    <ClInclude Include="BookmarkContextMenu.h" />
+    <ClInclude Include="BookmarkDataExchange.h" />
+    <ClInclude Include="BookmarkDropInfo.h" />
+    <ClInclude Include="BookmarkDropTargetWindow.h" />
     <ClInclude Include="BookmarkHelper.h" />
+    <ClInclude Include="BookmarkItem.h" />
     <ClInclude Include="BookmarkListView.h" />
+    <ClInclude Include="BookmarkRegistryStorage.h" />
+    <ClInclude Include="BookmarksMainMenu.h" />
     <ClInclude Include="BookmarkMenu.h" />
+    <ClInclude Include="BookmarkMenuBuilder.h" />
     <ClInclude Include="BookmarksToolbar.h" />
+    <ClInclude Include="BookmarkStorage.h" />
+    <ClInclude Include="BookmarkTree.h" />
     <ClInclude Include="BookmarkTreeView.h" />
+    <ClInclude Include="BookmarkXmlStorage.h" />
     <ClInclude Include="ColorRuleDialog.h" />
     <ClInclude Include="ColorRuleHelper.h" />
     <ClInclude Include="CommandInvoked.h" />
@@ -478,6 +649,11 @@
     <ClInclude Include="HelpFileMissingDialog.h" />
     <ClInclude Include="HolderWindow.h" />
     <ClInclude Include="HolderWindowInternal.h" />
+    <ClInclude Include="Icon.h" />
+    <ClInclude Include="IconMapping.h" />
+    <ClInclude Include="IconMappingsColor.h" />
+    <ClInclude Include="IconMappingsWindows10.h" />
+    <ClInclude Include="IconResourceLoader.h" />
     <ClInclude Include="IDropFilesCallback.h" />
     <ClInclude Include="IModelessDialogNotification.h" />
     <ClInclude Include="INewMenuClient.h" />
@@ -488,7 +664,6 @@
     <ClInclude Include="LoadSaveXml.h" />
     <ClInclude Include="Logging.h" />
     <ClInclude Include="LuaPlugin.h" />
-    <ClInclude Include="MainImages.h" />
     <ClInclude Include="MainResource.h" />
     <ClInclude Include="MainToolbar.h" />
     <ClInclude Include="MainWindow.h" />
@@ -496,18 +671,20 @@
     <ClInclude Include="Manifest.h" />
     <ClInclude Include="MassRenameDialog.h" />
     <ClInclude Include="MenuApi.h" />
+    <ClInclude Include="MenuHelper.h" />
     <ClInclude Include="MenuRanges.h" />
     <ClInclude Include="MergeFilesDialog.h" />
     <ClInclude Include="ModelessDialogs.h" />
     <ClInclude Include="Navigation.h" />
-    <ClInclude Include="NewBookmarkFolderDialog.h" />
     <ClInclude Include="NoTranslationResource.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="OptionsDialog.h" />
     <ClInclude Include="PluginCommandManager.h" />
     <ClInclude Include="PluginInterface.h" />
     <ClInclude Include="PluginManager.h" />
     <ClInclude Include="PluginMenuManager.h" />
     <ClInclude Include="FileProgressSink.h" />
+    <ClInclude Include="PreservedTab.h" />
     <ClInclude Include="RegistrySettings.h" />
     <ClInclude Include="RenameTabDialog.h" />
     <ClInclude Include="resource.h" />
@@ -517,14 +694,17 @@
     <ClInclude Include="SelectColumnsDialog.h" />
     <ClInclude Include="SetDefaultColumnsDialog.h" />
     <ClInclude Include="SetFileAttributesDialog.h" />
-    <ClInclude Include="ShellBrowser\CachedIcons.h" />
     <ClInclude Include="ShellBrowser\ColumnDataRetrieval.h" />
     <ClInclude Include="ShellBrowser\Columns.h" />
     <ClInclude Include="ShellBrowser\FolderSettings.h" />
-    <ClInclude Include="ShellBrowser\iPathManager.h" />
-    <ClInclude Include="ShellBrowser\iShellBrowser_internal.h" />
-    <ClInclude Include="ShellBrowser\iShellView.h" />
+    <ClInclude Include="ShellBrowser\HistoryEntry.h" />
+    <ClInclude Include="ShellBrowser\NavigationController.h" />
+    <ClInclude Include="ShellBrowser\NavigatorInterface.h" />
+    <ClInclude Include="ShellBrowser\PreservedFolderState.h" />
+    <ClInclude Include="ShellBrowser\PreservedHistoryEntry.h" />
+    <ClInclude Include="ShellBrowser\ShellBrowser.h" />
     <ClInclude Include="ShellBrowser\ItemData.h" />
+    <ClInclude Include="ShellBrowser\SortHelper.h" />
     <ClInclude Include="ShellBrowser\SortModes.h" />
     <ClInclude Include="ShellBrowser\ViewModes.h" />
     <ClInclude Include="SignalWrapper.h" />
@@ -534,13 +714,14 @@
     <ClInclude Include="Tab.h" />
     <ClInclude Include="TabBacking.h" />
     <ClInclude Include="TabContainer.h" />
-    <ClInclude Include="TabContainerInterface.h" />
     <ClInclude Include="TabCreated.h" />
     <ClInclude Include="TabDropHandler.h" />
-    <ClInclude Include="TabInterface.h" />
     <ClInclude Include="TabMoved.h" />
+    <ClInclude Include="TabNavigationInterface.h" />
     <ClInclude Include="TabProperties.h" />
     <ClInclude Include="TabRemoved.h" />
+    <ClInclude Include="TabRestorer.h" />
+    <ClInclude Include="TabRestorerUI.h" />
     <ClInclude Include="TabsApi.h" />
     <ClInclude Include="TabUpdated.h" />
     <ClInclude Include="TaskbarThumbnails.h" />
@@ -548,42 +729,43 @@
     <ClInclude Include="ToolbarButtons.h" />
     <ClInclude Include="UiApi.h" />
     <ClInclude Include="UpdateCheckDialog.h" />
+    <ClInclude Include="ValueWrapper.h" />
     <ClInclude Include="ViewModeHelper.h" />
     <ClInclude Include="WildcardSelectDialog.h" />
     <ClInclude Include="XMLSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="res\About Image.bmp" />
     <None Include="res\Display Window.ico" />
-    <None Include="res\Explorer++ Small.ico" />
     <None Include="res\Explorer++.ico" />
     <None Include="res\Filtering Applied.bmp" />
     <None Include="res\Folder Empty.bmp" />
-    <None Include="res\Folder Locked.bmp" />
     <None Include="res\Navigation Start.wav" />
     <None Include="res\No Preview Available.bmp" />
-    <None Include="res\Shell Images Large.bmp" />
-    <None Include="res\Shell Images.bmp" />
-    <None Include="res\Tab Close.bmp" />
     <None Include="Version.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Explorer++.rc">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ResourceCompile>
     <ResourceCompile Include="Explorer++VersionInfo.rc">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">true</ExcludedFromBuild>
     </ResourceCompile>
     <ResourceCompile Include="Explorer++_NoTranslation.rc">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug-LLVM|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ResourceCompile>
@@ -611,26 +793,27 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="..\packages\nlohmann.json.3.5.0\build\native\nlohmann.json.targets" Condition="Exists('..\packages\nlohmann.json.3.5.0\build\native\nlohmann.json.targets')" />
-    <Import Project="..\packages\boost.1.69.0.0\build\boost.targets" Condition="Exists('..\packages\boost.1.69.0.0\build\boost.targets')" />
-    <Import Project="..\packages\boost_atomic-vc140.1.69.0.0\build\boost_atomic-vc140.targets" Condition="Exists('..\packages\boost_atomic-vc140.1.69.0.0\build\boost_atomic-vc140.targets')" />
-    <Import Project="..\packages\boost_atomic-vc141.1.69.0.0\build\boost_atomic-vc141.targets" Condition="Exists('..\packages\boost_atomic-vc141.1.69.0.0\build\boost_atomic-vc141.targets')" />
-    <Import Project="..\packages\boost_chrono-vc140.1.69.0.0\build\boost_chrono-vc140.targets" Condition="Exists('..\packages\boost_chrono-vc140.1.69.0.0\build\boost_chrono-vc140.targets')" />
-    <Import Project="..\packages\boost_chrono-vc141.1.69.0.0\build\boost_chrono-vc141.targets" Condition="Exists('..\packages\boost_chrono-vc141.1.69.0.0\build\boost_chrono-vc141.targets')" />
-    <Import Project="..\packages\boost_date_time-vc140.1.69.0.0\build\boost_date_time-vc140.targets" Condition="Exists('..\packages\boost_date_time-vc140.1.69.0.0\build\boost_date_time-vc140.targets')" />
-    <Import Project="..\packages\boost_date_time-vc141.1.69.0.0\build\boost_date_time-vc141.targets" Condition="Exists('..\packages\boost_date_time-vc141.1.69.0.0\build\boost_date_time-vc141.targets')" />
-    <Import Project="..\packages\boost_filesystem-vc140.1.69.0.0\build\boost_filesystem-vc140.targets" Condition="Exists('..\packages\boost_filesystem-vc140.1.69.0.0\build\boost_filesystem-vc140.targets')" />
-    <Import Project="..\packages\boost_filesystem-vc141.1.69.0.0\build\boost_filesystem-vc141.targets" Condition="Exists('..\packages\boost_filesystem-vc141.1.69.0.0\build\boost_filesystem-vc141.targets')" />
-    <Import Project="..\packages\boost_locale-vc140.1.69.0.0\build\boost_locale-vc140.targets" Condition="Exists('..\packages\boost_locale-vc140.1.69.0.0\build\boost_locale-vc140.targets')" />
-    <Import Project="..\packages\boost_locale-vc141.1.69.0.0\build\boost_locale-vc141.targets" Condition="Exists('..\packages\boost_locale-vc141.1.69.0.0\build\boost_locale-vc141.targets')" />
-    <Import Project="..\packages\boost_log-vc140.1.69.0.0\build\boost_log-vc140.targets" Condition="Exists('..\packages\boost_log-vc140.1.69.0.0\build\boost_log-vc140.targets')" />
-    <Import Project="..\packages\boost_log-vc141.1.69.0.0\build\boost_log-vc141.targets" Condition="Exists('..\packages\boost_log-vc141.1.69.0.0\build\boost_log-vc141.targets')" />
-    <Import Project="..\packages\boost_log_setup-vc140.1.69.0.0\build\boost_log_setup-vc140.targets" Condition="Exists('..\packages\boost_log_setup-vc140.1.69.0.0\build\boost_log_setup-vc140.targets')" />
-    <Import Project="..\packages\boost_log_setup-vc141.1.69.0.0\build\boost_log_setup-vc141.targets" Condition="Exists('..\packages\boost_log_setup-vc141.1.69.0.0\build\boost_log_setup-vc141.targets')" />
-    <Import Project="..\packages\boost_system-vc140.1.69.0.0\build\boost_system-vc140.targets" Condition="Exists('..\packages\boost_system-vc140.1.69.0.0\build\boost_system-vc140.targets')" />
-    <Import Project="..\packages\boost_system-vc141.1.69.0.0\build\boost_system-vc141.targets" Condition="Exists('..\packages\boost_system-vc141.1.69.0.0\build\boost_system-vc141.targets')" />
-    <Import Project="..\packages\boost_thread-vc140.1.69.0.0\build\boost_thread-vc140.targets" Condition="Exists('..\packages\boost_thread-vc140.1.69.0.0\build\boost_thread-vc140.targets')" />
-    <Import Project="..\packages\boost_thread-vc141.1.69.0.0\build\boost_thread-vc141.targets" Condition="Exists('..\packages\boost_thread-vc141.1.69.0.0\build\boost_thread-vc141.targets')" />
+    <Import Project="..\packages\nlohmann.json.3.7.0\build\native\nlohmann.json.targets" Condition="Exists('..\packages\nlohmann.json.3.7.0\build\native\nlohmann.json.targets')" />
+    <Import Project="..\packages\boost.1.71.0.0\build\boost.targets" Condition="Exists('..\packages\boost.1.71.0.0\build\boost.targets')" />
+    <Import Project="..\packages\boost_atomic-vc141.1.71.0.0\build\boost_atomic-vc141.targets" Condition="Exists('..\packages\boost_atomic-vc141.1.71.0.0\build\boost_atomic-vc141.targets')" />
+    <Import Project="..\packages\boost_chrono-vc141.1.71.0.0\build\boost_chrono-vc141.targets" Condition="Exists('..\packages\boost_chrono-vc141.1.71.0.0\build\boost_chrono-vc141.targets')" />
+    <Import Project="..\packages\boost_date_time-vc141.1.71.0.0\build\boost_date_time-vc141.targets" Condition="Exists('..\packages\boost_date_time-vc141.1.71.0.0\build\boost_date_time-vc141.targets')" />
+    <Import Project="..\packages\boost_filesystem-vc141.1.71.0.0\build\boost_filesystem-vc141.targets" Condition="Exists('..\packages\boost_filesystem-vc141.1.71.0.0\build\boost_filesystem-vc141.targets')" />
+    <Import Project="..\packages\boost_locale-vc141.1.71.0.0\build\boost_locale-vc141.targets" Condition="Exists('..\packages\boost_locale-vc141.1.71.0.0\build\boost_locale-vc141.targets')" />
+    <Import Project="..\packages\boost_log-vc141.1.71.0.0\build\boost_log-vc141.targets" Condition="Exists('..\packages\boost_log-vc141.1.71.0.0\build\boost_log-vc141.targets')" />
+    <Import Project="..\packages\boost_log_setup-vc141.1.71.0.0\build\boost_log_setup-vc141.targets" Condition="Exists('..\packages\boost_log_setup-vc141.1.71.0.0\build\boost_log_setup-vc141.targets')" />
+    <Import Project="..\packages\boost_system-vc141.1.71.0.0\build\boost_system-vc141.targets" Condition="Exists('..\packages\boost_system-vc141.1.71.0.0\build\boost_system-vc141.targets')" />
+    <Import Project="..\packages\boost_thread-vc141.1.71.0.0\build\boost_thread-vc141.targets" Condition="Exists('..\packages\boost_thread-vc141.1.71.0.0\build\boost_thread-vc141.targets')" />
+    <Import Project="..\packages\boost_atomic-vc142.1.71.0.0\build\boost_atomic-vc142.targets" Condition="Exists('..\packages\boost_atomic-vc142.1.71.0.0\build\boost_atomic-vc142.targets')" />
+    <Import Project="..\packages\boost_chrono-vc142.1.71.0.0\build\boost_chrono-vc142.targets" Condition="Exists('..\packages\boost_chrono-vc142.1.71.0.0\build\boost_chrono-vc142.targets')" />
+    <Import Project="..\packages\boost_date_time-vc142.1.71.0.0\build\boost_date_time-vc142.targets" Condition="Exists('..\packages\boost_date_time-vc142.1.71.0.0\build\boost_date_time-vc142.targets')" />
+    <Import Project="..\packages\boost_filesystem-vc142.1.71.0.0\build\boost_filesystem-vc142.targets" Condition="Exists('..\packages\boost_filesystem-vc142.1.71.0.0\build\boost_filesystem-vc142.targets')" />
+    <Import Project="..\packages\boost_locale-vc142.1.71.0.0\build\boost_locale-vc142.targets" Condition="Exists('..\packages\boost_locale-vc142.1.71.0.0\build\boost_locale-vc142.targets')" />
+    <Import Project="..\packages\boost_log_setup-vc142.1.71.0.0\build\boost_log_setup-vc142.targets" Condition="Exists('..\packages\boost_log_setup-vc142.1.71.0.0\build\boost_log_setup-vc142.targets')" />
+    <Import Project="..\packages\boost_log-vc142.1.71.0.0\build\boost_log-vc142.targets" Condition="Exists('..\packages\boost_log-vc142.1.71.0.0\build\boost_log-vc142.targets')" />
+    <Import Project="..\packages\boost_system-vc142.1.71.0.0\build\boost_system-vc142.targets" Condition="Exists('..\packages\boost_system-vc142.1.71.0.0\build\boost_system-vc142.targets')" />
+    <Import Project="..\packages\boost_thread-vc142.1.71.0.0\build\boost_thread-vc142.targets" Condition="Exists('..\packages\boost_thread-vc142.1.71.0.0\build\boost_thread-vc142.targets')" />
+    <Import Project="..\packages\Microsoft.Windows.ImplementationLibrary.1.0.191107.2\build\native\Microsoft.Windows.ImplementationLibrary.targets" Condition="Exists('..\packages\Microsoft.Windows.ImplementationLibrary.1.0.191107.2\build\native\Microsoft.Windows.ImplementationLibrary.targets')" />
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
@@ -641,25 +824,26 @@
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\nlohmann.json.3.5.0\build\native\nlohmann.json.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nlohmann.json.3.5.0\build\native\nlohmann.json.targets'))" />
-    <Error Condition="!Exists('..\packages\boost.1.69.0.0\build\boost.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost.1.69.0.0\build\boost.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_atomic-vc140.1.69.0.0\build\boost_atomic-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_atomic-vc140.1.69.0.0\build\boost_atomic-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_atomic-vc141.1.69.0.0\build\boost_atomic-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_atomic-vc141.1.69.0.0\build\boost_atomic-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_chrono-vc140.1.69.0.0\build\boost_chrono-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_chrono-vc140.1.69.0.0\build\boost_chrono-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_chrono-vc141.1.69.0.0\build\boost_chrono-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_chrono-vc141.1.69.0.0\build\boost_chrono-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_date_time-vc140.1.69.0.0\build\boost_date_time-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_date_time-vc140.1.69.0.0\build\boost_date_time-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_date_time-vc141.1.69.0.0\build\boost_date_time-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_date_time-vc141.1.69.0.0\build\boost_date_time-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_filesystem-vc140.1.69.0.0\build\boost_filesystem-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_filesystem-vc140.1.69.0.0\build\boost_filesystem-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_filesystem-vc141.1.69.0.0\build\boost_filesystem-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_filesystem-vc141.1.69.0.0\build\boost_filesystem-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_locale-vc140.1.69.0.0\build\boost_locale-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_locale-vc140.1.69.0.0\build\boost_locale-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_locale-vc141.1.69.0.0\build\boost_locale-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_locale-vc141.1.69.0.0\build\boost_locale-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_log-vc140.1.69.0.0\build\boost_log-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log-vc140.1.69.0.0\build\boost_log-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_log-vc141.1.69.0.0\build\boost_log-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log-vc141.1.69.0.0\build\boost_log-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_log_setup-vc140.1.69.0.0\build\boost_log_setup-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log_setup-vc140.1.69.0.0\build\boost_log_setup-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_log_setup-vc141.1.69.0.0\build\boost_log_setup-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log_setup-vc141.1.69.0.0\build\boost_log_setup-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_system-vc140.1.69.0.0\build\boost_system-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_system-vc140.1.69.0.0\build\boost_system-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_system-vc141.1.69.0.0\build\boost_system-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_system-vc141.1.69.0.0\build\boost_system-vc141.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_thread-vc140.1.69.0.0\build\boost_thread-vc140.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_thread-vc140.1.69.0.0\build\boost_thread-vc140.targets'))" />
-    <Error Condition="!Exists('..\packages\boost_thread-vc141.1.69.0.0\build\boost_thread-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_thread-vc141.1.69.0.0\build\boost_thread-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\nlohmann.json.3.7.0\build\native\nlohmann.json.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nlohmann.json.3.7.0\build\native\nlohmann.json.targets'))" />
+    <Error Condition="!Exists('..\packages\boost.1.71.0.0\build\boost.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost.1.71.0.0\build\boost.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_atomic-vc141.1.71.0.0\build\boost_atomic-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_atomic-vc141.1.71.0.0\build\boost_atomic-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_chrono-vc141.1.71.0.0\build\boost_chrono-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_chrono-vc141.1.71.0.0\build\boost_chrono-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_date_time-vc141.1.71.0.0\build\boost_date_time-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_date_time-vc141.1.71.0.0\build\boost_date_time-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_filesystem-vc141.1.71.0.0\build\boost_filesystem-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_filesystem-vc141.1.71.0.0\build\boost_filesystem-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_locale-vc141.1.71.0.0\build\boost_locale-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_locale-vc141.1.71.0.0\build\boost_locale-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_log-vc141.1.71.0.0\build\boost_log-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log-vc141.1.71.0.0\build\boost_log-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_log_setup-vc141.1.71.0.0\build\boost_log_setup-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log_setup-vc141.1.71.0.0\build\boost_log_setup-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_system-vc141.1.71.0.0\build\boost_system-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_system-vc141.1.71.0.0\build\boost_system-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_thread-vc141.1.71.0.0\build\boost_thread-vc141.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_thread-vc141.1.71.0.0\build\boost_thread-vc141.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_atomic-vc142.1.71.0.0\build\boost_atomic-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_atomic-vc142.1.71.0.0\build\boost_atomic-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_chrono-vc142.1.71.0.0\build\boost_chrono-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_chrono-vc142.1.71.0.0\build\boost_chrono-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_date_time-vc142.1.71.0.0\build\boost_date_time-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_date_time-vc142.1.71.0.0\build\boost_date_time-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_filesystem-vc142.1.71.0.0\build\boost_filesystem-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_filesystem-vc142.1.71.0.0\build\boost_filesystem-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_locale-vc142.1.71.0.0\build\boost_locale-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_locale-vc142.1.71.0.0\build\boost_locale-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_log_setup-vc142.1.71.0.0\build\boost_log_setup-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log_setup-vc142.1.71.0.0\build\boost_log_setup-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_log-vc142.1.71.0.0\build\boost_log-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_log-vc142.1.71.0.0\build\boost_log-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_system-vc142.1.71.0.0\build\boost_system-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_system-vc142.1.71.0.0\build\boost_system-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\boost_thread-vc142.1.71.0.0\build\boost_thread-vc142.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\boost_thread-vc142.1.71.0.0\build\boost_thread-vc142.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.Windows.ImplementationLibrary.1.0.191107.2\build\native\Microsoft.Windows.ImplementationLibrary.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.ImplementationLibrary.1.0.191107.2\build\native\Microsoft.Windows.ImplementationLibrary.targets'))" />
   </Target>
 </Project>

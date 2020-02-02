@@ -9,23 +9,22 @@
 #include "Navigation.h"
 #include "../Helper/BaseWindow.h"
 #include "../Helper/FileContextMenuManager.h"
-#include <boost\serialization\strong_typedef.hpp>
+#include "../Helper/WindowSubclassWrapper.h"
+#include <boost/serialization/strong_typedef.hpp>
 #include <list>
 #include <unordered_map>
 
-class CDrivesToolbar : public CBaseWindow, public IFileContextMenuExternal, public NHardwareChangeNotifier::INotification
+class DrivesToolbar : public BaseWindow, public IFileContextMenuExternal, public NHardwareChangeNotifier::INotification
 {
-	friend LRESULT CALLBACK DrivesToolbarParentProcStub(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
-
 public:
 
-	static CDrivesToolbar	*Create(HWND hParent, UINT uIDStart, UINT uIDEnd,
+	static DrivesToolbar	*Create(HWND hParent, UINT uIDStart, UINT uIDEnd,
 		HINSTANCE hInstance, IExplorerplusplus *pexpp, Navigation *navigation);
 
 	/* IFileContextMenuExternal methods. */
-	void	AddMenuEntries(LPCITEMIDLIST pidlParent,const std::list<LPITEMIDLIST> &pidlItemList,DWORD_PTR dwData,HMENU hMenu);
-	BOOL	HandleShellMenuItem(LPCITEMIDLIST pidlParent,const std::list<LPITEMIDLIST> &pidlItemList,DWORD_PTR dwData,const TCHAR *szCmd);
-	void	HandleCustomMenuItem(LPCITEMIDLIST pidlParent,const std::list<LPITEMIDLIST> &pidlItemList,int iCmd);
+	void	AddMenuEntries(PCIDLIST_ABSOLUTE pidlParent, const std::vector<PITEMID_CHILD> &pidlItems, DWORD_PTR dwData, HMENU hMenu);
+	BOOL	HandleShellMenuItem(PCIDLIST_ABSOLUTE pidlParent, const std::vector<PITEMID_CHILD> &pidlItems, DWORD_PTR dwData, const TCHAR *szCmd);
+	void	HandleCustomMenuItem(PCIDLIST_ABSOLUTE pidlParent, const std::vector<PITEMID_CHILD> &pidlItems, int iCmd);
 
 protected:
 
@@ -48,11 +47,12 @@ private:
 
 	static const int MENU_ID_OPEN_IN_NEW_TAB = (MAX_SHELL_MENU_ID + 1);
 
+	static LRESULT CALLBACK DrivesToolbarParentProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK DrivesToolbarParentProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
-	CDrivesToolbar(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance,
+	DrivesToolbar(HWND hParent, UINT uIDStart, UINT uIDEnd, HINSTANCE hInstance,
 		IExplorerplusplus *pexpp, Navigation *navigation);
-	~CDrivesToolbar();
+	~DrivesToolbar();
 
 	static HWND	CreateDrivesToolbar(HWND hParent);
 
@@ -71,10 +71,10 @@ private:
 	void		OnDeviceArrival(DEV_BROADCAST_HDR *dbh);
 	void		OnDeviceRemoveComplete(DEV_BROADCAST_HDR *dbh);
 
-	HINSTANCE	m_hInstance;
+	HINSTANCE m_hInstance;
 
-	UINT		m_uIDStart;
-	UINT		m_uIDEnd;
+	UINT m_uIDStart;
+	UINT m_uIDEnd;
 
 	IExplorerplusplus *m_pexpp;
 	Navigation *m_navigation;
@@ -89,5 +89,7 @@ private:
 
 	std::unordered_map<IDCounter,std::wstring,IDCounterHasher> m_mapID;
 
-	IDCounter	m_IDCounter;
+	IDCounter m_IDCounter;
+
+	std::vector<WindowSubclassWrapper> m_windowSubclasses;
 };

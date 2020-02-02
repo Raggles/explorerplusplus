@@ -7,14 +7,12 @@
 #include "TabContainer.h"
 #include "../Helper/DropHandler.h"
 
-class CTabDropHandler : public IDropTarget
+class TabDropHandler : public IDropTarget
 {
-	friend LRESULT CALLBACK TabCtrlProcStub(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam,UINT_PTR uIdSubclass,DWORD_PTR dwRefData);
-
 public:
 
-	CTabDropHandler(HWND hTabCtrl, TabContainer *tabContainer);
-	~CTabDropHandler();
+	TabDropHandler(HWND hTabCtrl, TabContainer *tabContainer);
+	~TabDropHandler();
 
 	/* IUnknown methods. */
 	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject);
@@ -34,6 +32,7 @@ private:
 	HRESULT __stdcall	DragLeave(void);
 	HRESULT __stdcall	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
 
+	static LRESULT CALLBACK	TabCtrlProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK	TabCtrlProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 
 	void				GetRepresentativeSourceDrive(IDataObject *pDataObject,CLIPFORMAT Format);
@@ -49,6 +48,6 @@ private:
 	IDropTargetHelper	*m_pDropTargetHelper;
 	bool				m_AcceptData;
 	int					m_TabHoverIndex;
-	DragTypes_t			m_DragType;
+	DragType			m_DragType;
 	std::wstring		m_RepresentativeDrive;
 };

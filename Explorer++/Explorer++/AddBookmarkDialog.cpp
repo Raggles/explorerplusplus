@@ -3,131 +3,224 @@
 // See LICENSE in the top level directory
 
 #include "stdafx.h"
-#include <stack>
-#include "Explorer++_internal.h"
 #include "AddBookmarkDialog.h"
-#include "MainImages.h"
 #include "BookmarkHelper.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
-#include "../Helper/WindowHelper.h"
+#include "ResourceHelper.h"
 #include "../Helper/Macros.h"
+#include "../Helper/WindowHelper.h"
 
-const TCHAR CAddBookmarkDialogPersistentSettings::SETTINGS_KEY[] = _T("AddBookmark");
+const TCHAR AddBookmarkDialogPersistentSettings::SETTINGS_KEY[] = _T("AddBookmark");
 
-CAddBookmarkDialog::CAddBookmarkDialog(HINSTANCE hInstance,int iResource,HWND hParent,
-	CBookmarkFolder &AllBookmarks,CBookmark &Bookmark) :
-	CBaseDialog(hInstance, iResource, hParent, true),
-	m_AllBookmarks(AllBookmarks),
-	m_Bookmark(Bookmark),
+AddBookmarkDialog::AddBookmarkDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
+	BookmarkTree *bookmarkTree, BookmarkItem *bookmarkItem, BookmarkItem *defaultParentSelection,
+	BookmarkItem **selectedParentFolder, std::optional<std::wstring> customDialogTitle) :
+	BaseDialog(hInstance, IDD_ADD_BOOKMARK, hParent, true),
+	m_expp(expp),
+	m_bookmarkTree(bookmarkTree),
+	m_bookmarkItem(bookmarkItem),
+	m_selectedParentFolder(selectedParentFolder),
+	m_customDialogTitle(customDialogTitle),
 	m_ErrorBrush(CreateSolidBrush(ERROR_BACKGROUND_COLOR))
 {
-	m_pabdps = &CAddBookmarkDialogPersistentSettings::GetInstance();
+	m_persistentSettings = &AddBookmarkDialogPersistentSettings::GetInstance();
 
 	/* If the singleton settings class has not been initialized
 	yet, mark the root bookmark as selected and expanded. This
 	is only needed the first time this dialog is shown, as
 	selection and expansion info will be saved each time after
 	that. */
-	if(!m_pabdps->m_bInitialized)
+	if(!m_persistentSettings->m_bInitialized)
 	{
-		m_pabdps->m_guidSelected = AllBookmarks.GetGUID();
-		m_pabdps->m_setExpansion.insert(AllBookmarks.GetGUID());
+		m_persistentSettings->m_guidSelected = m_bookmarkTree->GetBookmarksToolbarFolder()->GetGUID();
 
-		m_pabdps->m_bInitialized = true;
+		m_persistentSettings->m_bInitialized = true;
+	}
+
+	BookmarkItem *parent = bookmarkItem->GetParent();
+
+	if (parent)
+	{
+		m_persistentSettings->m_guidSelected = parent->GetGUID();
+	}
+	else if (defaultParentSelection)
+	{
+		m_persistentSettings->m_guidSelected = defaultParentSelection->GetGUID();
 	}
 }
 
-CAddBookmarkDialog::~CAddBookmarkDialog()
+INT_PTR AddBookmarkDialog::OnInitDialog()
 {
-	DeleteObject(m_ErrorBrush);
-}
+	if (m_bookmarkItem->IsFolder())
+	{
+		UpdateDialogForBookmarkFolder();
+	}
 
-INT_PTR CAddBookmarkDialog::OnInitDialog()
-{
-	SetDialogIcon();
+	SetDialogTitle();
 
-	SetDlgItemText(m_hDlg,IDC_BOOKMARK_NAME,m_Bookmark.GetName().c_str());
-	SetDlgItemText(m_hDlg,IDC_BOOKMARK_LOCATION,m_Bookmark.GetLocation().c_str());
+	SetDlgItemText(m_hDlg, IDC_BOOKMARK_NAME, m_bookmarkItem->GetName().c_str());
 
-	if(m_Bookmark.GetName().size() == 0 ||
-		m_Bookmark.GetLocation().size() == 0)
+	if (m_bookmarkItem->IsBookmark())
+	{
+		SetDlgItemText(m_hDlg, IDC_BOOKMARK_LOCATION, m_bookmarkItem->GetLocation().c_str());
+	}
+
+	if (m_bookmarkItem->GetName().empty() || (m_bookmarkItem->IsBookmark() && m_bookmarkItem->GetLocation().empty()))
 	{
 		EnableWindow(GetDlgItem(m_hDlg,IDOK),FALSE);
 	}
 
 	HWND hTreeView = GetDlgItem(m_hDlg,IDC_BOOKMARK_TREEVIEW);
 
-	m_pBookmarkTreeView = new CBookmarkTreeView(hTreeView,GetInstance(),&m_AllBookmarks,
-		m_pabdps->m_guidSelected,m_pabdps->m_setExpansion);
+	m_pBookmarkTreeView = new BookmarkTreeView(hTreeView, GetInstance(), m_expp, m_bookmarkTree,
+		m_persistentSettings->m_setExpansion, m_persistentSettings->m_guidSelected);
 
 	HWND hEditName = GetDlgItem(m_hDlg,IDC_BOOKMARK_NAME);
 	SendMessage(hEditName,EM_SETSEL,0,-1);
 	SetFocus(hEditName);
 
-	CBookmarkItemNotifier::GetInstance().AddObserver(this);
-
-	m_pabdps->RestoreDialogPosition(m_hDlg,true);
+	m_persistentSettings->RestoreDialogPosition(m_hDlg,false);
 
 	return 0;
 }
 
-void CAddBookmarkDialog::SetDialogIcon()
+// A bookmark folder has no location field. Therefore, if the bookmark item
+// being added or updated is a folder, the location control will be removed, the
+// controls below it will be moved up and the dialog will be resized.
+void AddBookmarkDialog::UpdateDialogForBookmarkFolder()
 {
-	HIMAGELIST himl = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,48);
-	HBITMAP hBitmap = LoadBitmap(GetModuleHandle(NULL),MAKEINTRESOURCE(IDB_SHELLIMAGES));
-	ImageList_Add(himl,hBitmap,NULL);
+	RECT locationLabelRect;
+	HWND locationLabel = GetDlgItem(m_hDlg, IDC_STATIC_LOCATION);
+	GetWindowRect(locationLabel, &locationLabelRect);
+	ShowWindow(locationLabel, SW_HIDE);
 
-	m_hDialogIcon = ImageList_GetIcon(himl,SHELLIMAGES_ADDFAV,ILD_NORMAL);
-	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_hDialogIcon));
+	HWND location = GetDlgItem(m_hDlg, IDC_BOOKMARK_LOCATION);
+	ShowWindow(location, SW_HIDE);
 
-	DeleteObject(hBitmap);
-	ImageList_Destroy(himl);
+	RECT treeViewRect;
+	HWND treeView = GetDlgItem(m_hDlg, IDC_BOOKMARK_TREEVIEW);
+	GetWindowRect(treeView, &treeViewRect);
+
+	int yOffset = treeViewRect.top - locationLabelRect.top;
+
+	const UINT controlsToMove[] = { IDC_BOOKMARK_TREEVIEW, IDC_BOOKMARK_NEWFOLDER,
+		IDOK, IDCANCEL, IDC_GRIPPER };
+
+	for (auto control : controlsToMove)
+	{
+		HWND controlWindow = GetDlgItem(m_hDlg, control);
+
+		RECT controlRect;
+		GetWindowRect(controlWindow, &controlRect);
+
+		MapWindowPoints(HWND_DESKTOP, m_hDlg, reinterpret_cast<LPPOINT>(&controlRect), 2);
+		SetWindowPos(controlWindow, nullptr, controlRect.left, controlRect.top - yOffset,
+			0, 0, SWP_NOSIZE | SWP_NOZORDER);
+	}
+
+	RECT dialogRect;
+	GetWindowRect(m_hDlg, &dialogRect);
+	InflateRect(&dialogRect, 0, -yOffset);
+
+	m_iMinWidth = GetRectWidth(&dialogRect);
+	m_iMinHeight = GetRectHeight(&dialogRect);
+
+	SetWindowPos(m_hDlg, nullptr, 0, 0, GetRectWidth(&dialogRect), GetRectHeight(&dialogRect),
+		SWP_NOMOVE | SWP_NOZORDER);
 }
 
-void CAddBookmarkDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+void AddBookmarkDialog::SetDialogTitle()
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+	std::wstring dialogTitle = LoadDialogTitle();
+	SetWindowText(m_hDlg, dialogTitle.c_str());
+}
 
-	CResizableDialog::Control_t Control;
+std::wstring AddBookmarkDialog::LoadDialogTitle()
+{
+	if (m_customDialogTitle)
+	{
+		return *m_customDialogTitle;
+	}
+
+	auto existingBookmarkItem = BookmarkHelper::GetBookmarkItemById(m_bookmarkTree, m_bookmarkItem->GetGUID());
+	UINT stringId;
+
+	if (existingBookmarkItem)
+	{
+		if (m_bookmarkItem->IsBookmark())
+		{
+			stringId = IDS_ADD_BOOKMARK_TITLE_EDIT_BOOKMARK;
+		}
+		else
+		{
+			stringId = IDS_ADD_BOOKMARK_TITLE_EDIT_FOLDER;
+		}
+	}
+	else
+	{
+		if (m_bookmarkItem->IsBookmark())
+		{
+			stringId = IDS_ADD_BOOKMARK_TITLE_ADD_BOOKMARK;
+		}
+		else
+		{
+			stringId = IDS_ADD_BOOKMARK_TITLE_ADD_FOLDER;
+		}
+	}
+
+	return ResourceHelper::LoadString(GetInstance(), stringId);
+}
+
+wil::unique_hicon AddBookmarkDialog::GetDialogIcon(int iconWidth, int iconHeight) const
+{
+	return m_expp->GetIconResourceLoader()->LoadIconFromPNGAndScale(Icon::AddBookmark, iconWidth, iconHeight);
+}
+
+void AddBookmarkDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
+{
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_BOOKMARK_NAME;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BOOKMARK_LOCATION;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BOOKMARK_TREEVIEW;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BOOKMARK_NEWFOLDER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_Y;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
 	ControlList.push_back(Control);
 
 	Control.iID = IDOK;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDCANCEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 
-INT_PTR CAddBookmarkDialog::OnCtlColorEdit(HWND hwnd,HDC hdc)
+INT_PTR AddBookmarkDialog::OnCtlColorEdit(HWND hwnd,HDC hdc)
 {
 	if(hwnd == GetDlgItem(m_hDlg,IDC_BOOKMARK_NAME) ||
 		hwnd == GetDlgItem(m_hDlg,IDC_BOOKMARK_LOCATION))
@@ -135,14 +228,14 @@ INT_PTR CAddBookmarkDialog::OnCtlColorEdit(HWND hwnd,HDC hdc)
 		if(GetWindowTextLength(hwnd) == 0)
 		{
 			SetBkMode(hdc,TRANSPARENT);
-			return reinterpret_cast<INT_PTR>(m_ErrorBrush);
+			return reinterpret_cast<INT_PTR>(m_ErrorBrush.get());
 		}
 	}
 
 	return FALSE;
 }
 
-INT_PTR CAddBookmarkDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR AddBookmarkDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -151,18 +244,21 @@ INT_PTR CAddBookmarkDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 		switch(HIWORD(wParam))
 		{
 		case EN_CHANGE:
-			/* If either the name or location fields are empty,
-			disable the ok button. */
-			BOOL bEnable = (GetWindowTextLength(GetDlgItem(m_hDlg,IDC_BOOKMARK_NAME)) != 0 &&
-				GetWindowTextLength(GetDlgItem(m_hDlg,IDC_BOOKMARK_LOCATION)) != 0);
-			EnableWindow(GetDlgItem(m_hDlg,IDOK),bEnable);
+			BOOL bEnable = (GetWindowTextLength(GetDlgItem(m_hDlg, IDC_BOOKMARK_NAME)) != 0);
 
-			if(LOWORD(wParam) == IDC_BOOKMARK_NAME ||
+			if (m_bookmarkItem->IsBookmark())
+			{
+				bEnable &= (GetWindowTextLength(GetDlgItem(m_hDlg, IDC_BOOKMARK_LOCATION)) != 0);
+			}
+
+			EnableWindow(GetDlgItem(m_hDlg, IDOK), bEnable);
+
+			if (LOWORD(wParam) == IDC_BOOKMARK_NAME ||
 				LOWORD(wParam) == IDC_BOOKMARK_LOCATION)
 			{
 				/* Used to ensure the edit controls are redrawn properly when
 				changing the background color. */
-				InvalidateRect(GetDlgItem(m_hDlg,LOWORD(wParam)),NULL,TRUE);
+				InvalidateRect(GetDlgItem(m_hDlg, LOWORD(wParam)), NULL, TRUE);
 			}
 			break;
 		}
@@ -188,64 +284,70 @@ INT_PTR CAddBookmarkDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-void CAddBookmarkDialog::OnOk()
+void AddBookmarkDialog::OnOk()
 {
 	HWND hName = GetDlgItem(m_hDlg,IDC_BOOKMARK_NAME);
-	std::wstring strName;
-	GetWindowString(hName,strName);
+	std::wstring name;
+	GetWindowString(hName,name);
 
 	HWND hLocation = GetDlgItem(m_hDlg,IDC_BOOKMARK_LOCATION);
-	std::wstring strLocation;
-	GetWindowString(hLocation,strLocation);
+	std::wstring location;
+	GetWindowString(hLocation,location);
 
-	if(strName.size() > 0 &&
-		strLocation.size() > 0)
+	if (name.empty() || (m_bookmarkItem->IsBookmark() && location.empty()))
 	{
-		HWND hTreeView = GetDlgItem(m_hDlg,IDC_BOOKMARK_TREEVIEW);
-		HTREEITEM hSelected = TreeView_GetSelection(hTreeView);
-		CBookmarkFolder &BookmarkFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hSelected);
-
-		CBookmark Bookmark = CBookmark::Create(strName,strLocation,_T(""));
-		BookmarkFolder.InsertBookmark(Bookmark);
+		EndDialog(m_hDlg, RETURN_CANCEL);
+		return;
 	}
 
-	EndDialog(m_hDlg,1);
+	HWND hTreeView = GetDlgItem(m_hDlg, IDC_BOOKMARK_TREEVIEW);
+	HTREEITEM hSelected = TreeView_GetSelection(hTreeView);
+	*m_selectedParentFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hSelected);
+
+	m_bookmarkItem->SetName(name);
+
+	if (m_bookmarkItem->IsBookmark())
+	{
+		m_bookmarkItem->SetLocation(location);
+	}
+
+	EndDialog(m_hDlg, RETURN_OK);
 }
 
-void CAddBookmarkDialog::OnCancel()
+void AddBookmarkDialog::OnCancel()
 {
-	EndDialog(m_hDlg,0);
+	EndDialog(m_hDlg, RETURN_CANCEL);
 }
 
-void CAddBookmarkDialog::SaveState()
+void AddBookmarkDialog::SaveState()
 {
-	m_pabdps->SaveDialogPosition(m_hDlg);
+	m_persistentSettings->SaveDialogPosition(m_hDlg);
 
 	SaveTreeViewState();
 
-	m_pabdps->m_bStateSaved = TRUE;
+	m_persistentSettings->m_bStateSaved = TRUE;
 }
 
-void CAddBookmarkDialog::SaveTreeViewState()
+void AddBookmarkDialog::SaveTreeViewState()
 {
 	HWND hTreeView = GetDlgItem(m_hDlg,IDC_BOOKMARK_TREEVIEW);
 
 	HTREEITEM hSelected = TreeView_GetSelection(hTreeView);
-	CBookmarkFolder &BookmarkFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hSelected);
-	m_pabdps->m_guidSelected = BookmarkFolder.GetGUID();
+	const auto bookmarkFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hSelected);
+	m_persistentSettings->m_guidSelected = bookmarkFolder->GetGUID();
 
-	m_pabdps->m_setExpansion.clear();
+	m_persistentSettings->m_setExpansion.clear();
 	SaveTreeViewExpansionState(hTreeView,TreeView_GetRoot(hTreeView));
 }
 
-void CAddBookmarkDialog::SaveTreeViewExpansionState(HWND hTreeView,HTREEITEM hItem)
+void AddBookmarkDialog::SaveTreeViewExpansionState(HWND hTreeView,HTREEITEM hItem)
 {
 	UINT uState = TreeView_GetItemState(hTreeView,hItem,TVIS_EXPANDED);
 
 	if(uState & TVIS_EXPANDED)
 	{
-		CBookmarkFolder &BookmarkFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hItem);
-		m_pabdps->m_setExpansion.insert(BookmarkFolder.GetGUID());
+		const auto bookmarkFolder = m_pBookmarkTreeView->GetBookmarkFolderFromTreeView(hItem);
+		m_persistentSettings->m_setExpansion.insert(bookmarkFolder->GetGUID());
 
 		HTREEITEM hChild = TreeView_GetChild(hTreeView,hItem);
 		SaveTreeViewExpansionState(hTreeView,hChild);
@@ -257,74 +359,27 @@ void CAddBookmarkDialog::SaveTreeViewExpansionState(HWND hTreeView,HTREEITEM hIt
 	}
 }
 
-INT_PTR CAddBookmarkDialog::OnClose()
+INT_PTR AddBookmarkDialog::OnClose()
 {
-	EndDialog(m_hDlg,0);
+	EndDialog(m_hDlg, RETURN_CANCEL);
 	return 0;
 }
 
-INT_PTR CAddBookmarkDialog::OnDestroy()
-{
-	CBookmarkItemNotifier::GetInstance().RemoveObserver(this);
-	DestroyIcon(m_hDialogIcon);
-
-	return 0;
-}
-
-INT_PTR CAddBookmarkDialog::OnNcDestroy()
+INT_PTR AddBookmarkDialog::OnNcDestroy()
 {
 	delete m_pBookmarkTreeView;
 
 	return 0;
 }
 
-void CAddBookmarkDialog::OnBookmarkAdded(const CBookmarkFolder &ParentBookmarkFolder,
-	const CBookmark &Bookmark,std::size_t Position)
-{
-	UNREFERENCED_PARAMETER(ParentBookmarkFolder);
-	UNREFERENCED_PARAMETER(Bookmark);
-	UNREFERENCED_PARAMETER(Position);
-}
-
-void CAddBookmarkDialog::OnBookmarkFolderAdded(const CBookmarkFolder &ParentBookmarkFolder,
-	const CBookmarkFolder &BookmarkFolder,std::size_t Position)
-{
-	m_pBookmarkTreeView->BookmarkFolderAdded(ParentBookmarkFolder,BookmarkFolder,Position);
-}
-
-void CAddBookmarkDialog::OnBookmarkModified(const GUID &guid)
-{
-	UNREFERENCED_PARAMETER(guid);
-}
-
-void CAddBookmarkDialog::OnBookmarkFolderModified(const GUID &guid)
-{
-	m_pBookmarkTreeView->BookmarkFolderModified(guid);
-}
-
-void CAddBookmarkDialog::OnBookmarkRemoved(const GUID &guid)
-{
-	UNREFERENCED_PARAMETER(guid);
-}
-
-void CAddBookmarkDialog::OnBookmarkFolderRemoved(const GUID &guid)
-{
-	m_pBookmarkTreeView->BookmarkFolderRemoved(guid);
-}
-
-CAddBookmarkDialogPersistentSettings::CAddBookmarkDialogPersistentSettings() :
-CDialogSettings(SETTINGS_KEY)
+AddBookmarkDialogPersistentSettings::AddBookmarkDialogPersistentSettings() :
+DialogSettings(SETTINGS_KEY)
 {
 	m_bInitialized = false;
 }
 
-CAddBookmarkDialogPersistentSettings::~CAddBookmarkDialogPersistentSettings()
+AddBookmarkDialogPersistentSettings& AddBookmarkDialogPersistentSettings::GetInstance()
 {
-	
-}
-
-CAddBookmarkDialogPersistentSettings& CAddBookmarkDialogPersistentSettings::GetInstance()
-{
-	static CAddBookmarkDialogPersistentSettings abdps;
+	static AddBookmarkDialogPersistentSettings abdps;
 	return abdps;
 }

@@ -13,38 +13,22 @@
 #include "../Helper/WindowHelper.h"
 #include <list>
 
-
-CAboutDialog::CAboutDialog(HINSTANCE hInstance,int iResource,HWND hParent) :
-CBaseDialog(hInstance,iResource,hParent,false)
+AboutDialog::AboutDialog(HINSTANCE hInstance, HWND hParent) :
+	BaseDialog(hInstance, IDD_ABOUT, hParent, false)
 {
 	
 }
 
-CAboutDialog::~CAboutDialog()
+INT_PTR AboutDialog::OnInitDialog()
 {
-
-}
-
-INT_PTR CAboutDialog::OnInitDialog()
-{
-	m_hIcon = reinterpret_cast<HICON>(LoadImage(GetModuleHandle(0),
+	m_icon.reset(reinterpret_cast<HICON>(LoadImage(GetModuleHandle(0),
 		MAKEINTRESOURCE(IDI_MAIN),IMAGE_ICON,
-		32,32,LR_VGACOLOR));
+		32,32,LR_VGACOLOR)));
 
-	SendMessage(m_hDlg,WM_SETICON,ICON_SMALL,reinterpret_cast<LPARAM>(m_hIcon));
+	SendMessage(m_hDlg,WM_SETICON,ICON_SMALL,reinterpret_cast<LPARAM>(m_icon.get()));
 
-	/* If the dialog has been loaded from a resource other than
-	the one in the executable (which will be the case, for example,
-	if a translation DLL has been loaded), then the image that
-	normally appears won't be shown. This is because the static
-	control will attempt to load it from its resource section (where
-	the image doesn't exist). Manually set the image here. */
-	if(GetInstance() != GetModuleHandle(0))
-	{
-		HBITMAP hbm = LoadBitmap(GetModuleHandle(0),MAKEINTRESOURCE(IDB_ABOUT));
-		SendDlgItemMessage(m_hDlg,IDC_ABOUT_STATIC_IMAGE,STM_SETIMAGE,
-			IMAGE_BITMAP,reinterpret_cast<LPARAM>(hbm));
-	}
+	m_mainIcon.reset(static_cast<HICON>(LoadImage(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_MAIN), IMAGE_ICON, 48, 48, LR_DEFAULTCOLOR)));
+	SendDlgItemMessage(m_hDlg, IDC_ABOUT_STATIC_IMAGE, STM_SETICON, reinterpret_cast<WPARAM>(m_mainIcon.get()), 0);
 
 	TCHAR szVersion[64];
 	TCHAR szBuild[64];
@@ -81,7 +65,7 @@ INT_PTR CAboutDialog::OnInitDialog()
 	return TRUE;
 }
 
-INT_PTR CAboutDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR AboutDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -99,7 +83,7 @@ INT_PTR CAboutDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CAboutDialog::OnNotify(NMHDR *pnmhdr)
+INT_PTR AboutDialog::OnNotify(NMHDR *pnmhdr)
 {
 	switch(pnmhdr->code)
 	{
@@ -120,10 +104,8 @@ INT_PTR CAboutDialog::OnNotify(NMHDR *pnmhdr)
 	return 0;
 }
 
-INT_PTR CAboutDialog::OnClose()
+INT_PTR AboutDialog::OnClose()
 {
-	DestroyIcon(m_hIcon);
-
 	EndDialog(m_hDlg,0);
 	return 0;
 }

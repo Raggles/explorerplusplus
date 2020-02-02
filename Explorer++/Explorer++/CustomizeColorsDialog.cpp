@@ -6,42 +6,27 @@
 #include "CustomizeColorsDialog.h"
 #include "ColorRuleDialog.h"
 #include "Explorer++_internal.h"
-#include "MainImages.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/WindowHelper.h"
 
+const TCHAR CustomizeColorsDialogPersistentSettings::SETTINGS_KEY[] = _T("CustomizeColors");
 
-const TCHAR CCustomizeColorsDialogPersistentSettings::SETTINGS_KEY[] = _T("CustomizeColors");
-
-CCustomizeColorsDialog::CCustomizeColorsDialog(HINSTANCE hInstance,
-	int iResource,HWND hParent,std::vector<NColorRuleHelper::ColorRule_t> *pColorRuleList) :
-CBaseDialog(hInstance,iResource,hParent,true)
+CustomizeColorsDialog::CustomizeColorsDialog(HINSTANCE hInstance, HWND hParent,
+	IExplorerplusplus *expp, std::vector<NColorRuleHelper::ColorRule_t> *pColorRuleList) :
+	BaseDialog(hInstance, IDD_CUSTOMIZECOLORS, hParent, true),
+	m_expp(expp),
+	m_pColorRuleList(pColorRuleList)
 {
-	m_pColorRuleList = pColorRuleList;
-
-	m_pccdps = &CCustomizeColorsDialogPersistentSettings::GetInstance();
+	m_persistentSettings = &CustomizeColorsDialogPersistentSettings::GetInstance();
 }
 
-CCustomizeColorsDialog::~CCustomizeColorsDialog()
+INT_PTR CustomizeColorsDialog::OnInitDialog()
 {
-
-}
-
-INT_PTR CCustomizeColorsDialog::OnInitDialog()
-{
-	HIMAGELIST himl = ImageList_Create(16,16,ILC_COLOR32|ILC_MASK,0,48);
-	HBITMAP hBitmap = LoadBitmap(GetModuleHandle(0),MAKEINTRESOURCE(IDB_SHELLIMAGES));
-	ImageList_Add(himl,hBitmap,NULL);
-
-	m_hDialogIcon = ImageList_GetIcon(himl,SHELLIMAGES_CUSTOMIZECOLORS,ILD_NORMAL);
-	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_hDialogIcon));
-
-	DeleteObject(hBitmap);
-	ImageList_Destroy(himl);
-
 	HWND hListView = GetDlgItem(m_hDlg,IDC_LISTVIEW_COLORRULES);
 
 	SetWindowTheme(hListView,L"Explorer",NULL);
@@ -86,65 +71,70 @@ INT_PTR CCustomizeColorsDialog::OnInitDialog()
 
 	SetFocus(hListView);
 
-	m_pccdps->RestoreDialogPosition(m_hDlg,true);
+	m_persistentSettings->RestoreDialogPosition(m_hDlg,true);
 
 	return 0;
 }
 
-void CCustomizeColorsDialog::GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc,
-	std::list<CResizableDialog::Control_t> &ControlList)
+wil::unique_hicon CustomizeColorsDialog::GetDialogIcon(int iconWidth, int iconHeight) const
 {
-	dsc = CBaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+	return m_expp->GetIconResourceLoader()->LoadIconFromPNGAndScale(Icon::CustomizeColors, iconWidth, iconHeight);
+}
 
-	CResizableDialog::Control_t Control;
+void CustomizeColorsDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
+	std::list<ResizableDialog::Control_t> &ControlList)
+{
+	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
+
+	ResizableDialog::Control_t Control;
 
 	Control.iID = IDC_LISTVIEW_COLORRULES;
-	Control.Type = CResizableDialog::TYPE_RESIZE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_RESIZE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BUTTON_DELETE;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BUTTON_MOVEDOWN;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BUTTON_MOVEUP;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BUTTON_EDIT;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_BUTTON_NEW;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_X;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_X;
 	ControlList.push_back(Control);
 
 	Control.iID = IDOK;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDCANCEL;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 
 	Control.iID = IDC_GRIPPER;
-	Control.Type = CResizableDialog::TYPE_MOVE;
-	Control.Constraint = CResizableDialog::CONSTRAINT_NONE;
+	Control.Type = ResizableDialog::TYPE_MOVE;
+	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
 	ControlList.push_back(Control);
 }
 
-void CCustomizeColorsDialog::InsertColorRuleIntoListView(HWND hListView,const NColorRuleHelper::ColorRule_t &ColorRule,
+void CustomizeColorsDialog::InsertColorRuleIntoListView(HWND hListView,const NColorRuleHelper::ColorRule_t &ColorRule,
 	int iIndex)
 {
 	TCHAR szTemp[512];
@@ -169,7 +159,7 @@ void CCustomizeColorsDialog::InsertColorRuleIntoListView(HWND hListView,const NC
 	}
 }
 
-INT_PTR CCustomizeColorsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
+INT_PTR CustomizeColorsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 
@@ -207,7 +197,7 @@ INT_PTR CCustomizeColorsDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 	return 0;
 }
 
-INT_PTR CCustomizeColorsDialog::OnNotify(NMHDR *pnmhdr)
+INT_PTR CustomizeColorsDialog::OnNotify(NMHDR *pnmhdr)
 {
 	switch(pnmhdr->code)
 	{
@@ -226,35 +216,28 @@ INT_PTR CCustomizeColorsDialog::OnNotify(NMHDR *pnmhdr)
 	return 0;
 }
 
-INT_PTR CCustomizeColorsDialog::OnClose()
+INT_PTR CustomizeColorsDialog::OnClose()
 {
 	EndDialog(m_hDlg,0);
 	return 0;
 }
 
-INT_PTR CCustomizeColorsDialog::OnDestroy()
+void CustomizeColorsDialog::SaveState()
 {
-	DestroyIcon(m_hDialogIcon);
+	m_persistentSettings->SaveDialogPosition(m_hDlg);
 
-	return 0;
+	m_persistentSettings->m_bStateSaved = TRUE;
 }
 
-void CCustomizeColorsDialog::SaveState()
-{
-	m_pccdps->SaveDialogPosition(m_hDlg);
-
-	m_pccdps->m_bStateSaved = TRUE;
-}
-
-void CCustomizeColorsDialog::OnNew()
+void CustomizeColorsDialog::OnNew()
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_LISTVIEW_COLORRULES);
 
 	NColorRuleHelper::ColorRule_t ColorRule;
 
-	CColorRuleDialog ColorRuleDialog(GetInstance(),IDD_NEWCOLORRULE,m_hDlg,&ColorRule,FALSE);
+	ColorRuleDialog colorRuleDialog(GetInstance(), m_hDlg, &ColorRule, FALSE);
 
-	INT_PTR iRet = ColorRuleDialog.ShowModalDialog();
+	INT_PTR iRet = colorRuleDialog.ShowModalDialog();
 
 	if(iRet == 1)
 	{
@@ -267,7 +250,7 @@ void CCustomizeColorsDialog::OnNew()
 	SetFocus(m_hDlg);
 }
 
-void CCustomizeColorsDialog::OnEdit()
+void CustomizeColorsDialog::OnEdit()
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_LISTVIEW_COLORRULES);
 	int iSelected = ListView_GetNextItem(hListView,-1,LVNI_ALL|LVNI_SELECTED);
@@ -280,10 +263,9 @@ void CCustomizeColorsDialog::OnEdit()
 	SetFocus(m_hDlg);
 }
 
-void CCustomizeColorsDialog::EditColorRule(int iSelected)
+void CustomizeColorsDialog::EditColorRule(int iSelected)
 {
-	CColorRuleDialog ColorRuleDialog(GetInstance(),IDD_NEWCOLORRULE,m_hDlg,
-		&(*m_pColorRuleList)[iSelected],TRUE);
+	ColorRuleDialog ColorRuleDialog(GetInstance(), m_hDlg, &(*m_pColorRuleList)[iSelected], TRUE);
 
 	INT_PTR iRet = ColorRuleDialog.ShowModalDialog();
 
@@ -307,7 +289,7 @@ void CCustomizeColorsDialog::EditColorRule(int iSelected)
 	}
 }
 
-void CCustomizeColorsDialog::OnMove(BOOL bUp)
+void CustomizeColorsDialog::OnMove(BOOL bUp)
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_LISTVIEW_COLORRULES);
 	int iSelected = ListView_GetNextItem(hListView,-1,LVNI_SELECTED);
@@ -343,7 +325,7 @@ void CCustomizeColorsDialog::OnMove(BOOL bUp)
 	}
 }
 
-void CCustomizeColorsDialog::OnDelete()
+void CustomizeColorsDialog::OnDelete()
 {
 	HWND hListView = GetDlgItem(m_hDlg,IDC_LISTVIEW_COLORRULES);
 	int iSelected = ListView_GetNextItem(hListView,-1,LVNI_SELECTED);
@@ -377,29 +359,24 @@ void CCustomizeColorsDialog::OnDelete()
 	}
 }
 
-void CCustomizeColorsDialog::OnOk()
+void CustomizeColorsDialog::OnOk()
 {
 	EndDialog(m_hDlg,1);
 }
 
-void CCustomizeColorsDialog::OnCancel()
+void CustomizeColorsDialog::OnCancel()
 {
 	EndDialog(m_hDlg,0);
 }
 
-CCustomizeColorsDialogPersistentSettings::CCustomizeColorsDialogPersistentSettings() :
-CDialogSettings(SETTINGS_KEY)
+CustomizeColorsDialogPersistentSettings::CustomizeColorsDialogPersistentSettings() :
+DialogSettings(SETTINGS_KEY)
 {
 
 }
 
-CCustomizeColorsDialogPersistentSettings::~CCustomizeColorsDialogPersistentSettings()
+CustomizeColorsDialogPersistentSettings& CustomizeColorsDialogPersistentSettings::GetInstance()
 {
-	
-}
-
-CCustomizeColorsDialogPersistentSettings& CCustomizeColorsDialogPersistentSettings::GetInstance()
-{
-	static CCustomizeColorsDialogPersistentSettings sfadps;
+	static CustomizeColorsDialogPersistentSettings sfadps;
 	return sfadps;
 }

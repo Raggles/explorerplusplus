@@ -9,6 +9,7 @@
 #include "Config.h"
 #include "DrivesToolbar.h"
 #include "Explorer++_internal.h"
+#include "IconResourceLoader.h"
 #include "MainResource.h"
 #include "MainToolbar.h"
 #include "ToolbarButtons.h"
@@ -23,17 +24,19 @@ HWND Explorerplusplus::CreateTabToolbar(HWND hParent,int idCommand,TCHAR *szTip)
 	HWND TabToolbar = CreateToolbar(hParent,WS_CHILD|WS_VISIBLE|WS_CLIPSIBLINGS|
 		TBSTYLE_TOOLTIPS|TBSTYLE_LIST|TBSTYLE_TRANSPARENT|TBSTYLE_FLAT|CCS_NODIVIDER|
 		CCS_NOPARENTALIGN|CCS_NORESIZE,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_DOUBLEBUFFER);
+
+	UINT dpi = m_dpiCompat.GetDpiForWindow(TabToolbar);
+	int scaledIconSize = MulDiv(16, dpi, USER_DEFAULT_SCREEN_DPI);
 	
-	SendMessage(TabToolbar,TB_SETBITMAPSIZE,0,MAKELONG(7,7));
+	SendMessage(TabToolbar,TB_SETBITMAPSIZE,0,MAKELONG(scaledIconSize,scaledIconSize));
 	SendMessage(TabToolbar,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
-	SendMessage(TabToolbar,TB_SETBUTTONSIZE,0,MAKELPARAM(16,16));
+	SendMessage(TabToolbar,TB_SETBUTTONSIZE,0,MAKELPARAM(scaledIconSize,scaledIconSize));
 
 	/* TODO: The image list is been leaked. */
-	HIMAGELIST himl = ImageList_Create(7,7,ILC_COLOR32|ILC_MASK,0,2);
-	HBITMAP hb = LoadBitmap(GetModuleHandle(0),MAKEINTRESOURCE(IDB_TABTOOLBAR_CLOSE));
-	int iIndex = ImageList_Add(himl,hb,NULL);
+	HIMAGELIST himl = ImageList_Create(scaledIconSize,scaledIconSize,ILC_COLOR32|ILC_MASK,0,1);
+	wil::unique_hbitmap bitmap = m_iconResourceLoader->LoadBitmapFromPNGForDpi(Icon::CloseButton, 16, 16, dpi);
+	int iIndex = ImageList_Add(himl, bitmap.get(), nullptr);
 	SendMessage(TabToolbar,TB_SETIMAGELIST,0,reinterpret_cast<LPARAM>(himl));
-	DeleteObject(hb);
 
 	/* Add the close button, used to close tabs. */
 	TBBUTTON tbButton;
@@ -100,11 +103,16 @@ void Explorerplusplus::SetListViewInitialPosition(HWND hListView)
 
 	IndentTop = iIndentRebar;
 
+	RECT tabWindowRect;
+	GetClientRect(m_tabContainer->GetHWND(), &tabWindowRect);
+
+	int tabWindowHeight = GetRectHeight(&tabWindowRect);
+
 	if(m_bShowTabBar)
 	{
 		if(!m_config->showTabBarAtBottom)
 		{
-			IndentTop += TAB_WINDOW_HEIGHT;
+			IndentTop += tabWindowHeight;
 		}
 	}
 
@@ -119,7 +127,7 @@ void Explorerplusplus::SetListViewInitialPosition(HWND hListView)
 	{
 		SetWindowPos(hListView,NULL,IndentLeft,IndentTop,
 			MainWindowWidth - IndentLeft,MainWindowHeight -
-			IndentBottom - IndentTop - TAB_WINDOW_HEIGHT,
+			IndentBottom - IndentTop - tabWindowHeight,
 			SWP_HIDEWINDOW|SWP_NOZORDER);
 	}
 }
@@ -127,10 +135,16 @@ void Explorerplusplus::SetListViewInitialPosition(HWND hListView)
 void Explorerplusplus::ToggleFolders(void)
 {
 	m_config->showFolders = !m_config->showFolders;
+
+	if (m_config->showFolders)
+	{
+		UpdateTreeViewSelection();
+	}
+
 	lShowWindow(m_hHolder, m_config->showFolders);
 	lShowWindow(m_hTreeView, m_config->showFolders);
 
-	SendMessage(m_mainToolbar->GetHWND(),TB_CHECKBUTTON,(WPARAM)TOOLBAR_FOLDERS,(LPARAM)m_config->showFolders);
+	SendMessage(m_mainToolbar->GetHWND(),TB_CHECKBUTTON,(WPARAM)ToolbarButton::Folders,(LPARAM)m_config->showFolders);
 	ResizeWindows();
 }
 

@@ -4,39 +4,38 @@
 
 #pragma once
 
+#include "CoreInterface.h"
 #include "../Helper/BaseDialog.h"
-#include "../Helper/ResizableDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ReferenceCount.h"
+#include "../Helper/ResizableDialog.h"
 
-class CMergeFilesDialog;
+class MergeFilesDialog;
 
-class CMergeFilesDialogPersistentSettings : public CDialogSettings
+class MergeFilesDialogPersistentSettings : public DialogSettings
 {
 public:
 
-	~CMergeFilesDialogPersistentSettings();
-
-	static CMergeFilesDialogPersistentSettings &GetInstance();
+	static MergeFilesDialogPersistentSettings &GetInstance();
 
 private:
 
-	friend CMergeFilesDialog;
+	friend MergeFilesDialog;
 
 	static const TCHAR SETTINGS_KEY[];
 
-	CMergeFilesDialogPersistentSettings();
+	MergeFilesDialogPersistentSettings();
 
-	CMergeFilesDialogPersistentSettings(const CMergeFilesDialogPersistentSettings &);
-	CMergeFilesDialogPersistentSettings & operator=(const CMergeFilesDialogPersistentSettings &);
+	MergeFilesDialogPersistentSettings(const MergeFilesDialogPersistentSettings &);
+	MergeFilesDialogPersistentSettings & operator=(const MergeFilesDialogPersistentSettings &);
 };
 
-class CMergeFiles : public CReferenceCount
+class MergeFiles : public ReferenceCount
 {
 public:
 	
-	CMergeFiles(HWND hDlg,std::wstring strOutputFilename,std::list<std::wstring> FullFilenameList);
-	~CMergeFiles();
+	MergeFiles(HWND hDlg,std::wstring strOutputFilename,std::list<std::wstring> FullFilenameList);
+	~MergeFiles();
 
 	void					StartMerging();
 	void					StopMerging();
@@ -52,25 +51,28 @@ private:
 	bool					m_bstopMerging;
 };
 
-class CMergeFilesDialog : public CBaseDialog
+class MergeFilesDialog : public BaseDialog
 {
 public:
 
-	CMergeFilesDialog(HINSTANCE hInstance,int iResource,HWND hParent,std::wstring strOutputDirectory,std::list<std::wstring> FullFilenameList,BOOL bShowFriendlyDates);
-	~CMergeFilesDialog();
+	MergeFilesDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
+		std::wstring strOutputDirectory, std::list<std::wstring> FullFilenameList,
+		BOOL bShowFriendlyDates);
+	~MergeFilesDialog();
 
 protected:
 
 	INT_PTR	OnInitDialog();
 	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
 	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
 
 	INT_PTR	OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam);
 
+	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
+
 private:
 
-	void	GetResizableControlInformation(CBaseDialog::DialogSizeConstraint &dsc, std::list<CResizableDialog::Control_t> &ControlList);
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
 	void	SaveState();
 
 	void	OnOk();
@@ -79,16 +81,16 @@ private:
 	void	OnMove(bool bUp);
 	void	OnFinished();
 
-	std::wstring			m_strOutputDirectory;
-	std::list<std::wstring>	m_FullFilenameList;
-	BOOL					m_bShowFriendlyDates;
+	IExplorerplusplus *m_expp;
 
-	CMergeFiles				*m_pMergeFiles;
-	bool					m_bMergingFiles;
-	bool					m_bStopMerging;
-	TCHAR					m_szOk[32];
+	std::wstring m_strOutputDirectory;
+	std::list<std::wstring> m_FullFilenameList;
+	BOOL m_bShowFriendlyDates;
 
-	HICON					m_hDialogIcon;
+	MergeFiles *m_pMergeFiles;
+	bool m_bMergingFiles;
+	bool m_bStopMerging;
+	TCHAR m_szOk[32];
 
-	CMergeFilesDialogPersistentSettings	*m_pmfdps;
+	MergeFilesDialogPersistentSettings *m_persistentSettings;
 };
