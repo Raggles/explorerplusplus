@@ -10,20 +10,21 @@
 #include "stdafx.h"
 #include "Explorer++.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "TabBacking.h"
+#include "TabContainer.h"
 #include "../Helper/Macros.h"
 
 void Explorerplusplus::CreateTabBacking()
 {
-	m_hTabBacking = CreateWindow(WC_STATIC,EMPTY_STRING,
-	WS_VISIBLE|WS_CHILD|WS_CLIPSIBLINGS|SS_NOTIFY,
-	0,0,0,0,m_hContainer,NULL,GetModuleHandle(0),NULL);
+	m_hTabBacking =
+		CreateWindow(WC_STATIC, EMPTY_STRING, WS_VISIBLE | WS_CHILD | WS_CLIPSIBLINGS | SS_NOTIFY,
+			0, 0, 0, 0, m_hContainer, nullptr, GetModuleHandle(nullptr), nullptr);
 
 	/* Create the toolbar that will appear on the tab control.
 	Only contains the close button used to close tabs. */
-	TCHAR szTabCloseTip[64];
-	LoadString(m_hLanguageModule, IDS_TAB_CLOSE_TIP, szTabCloseTip, SIZEOF_ARRAY(szTabCloseTip));
-	m_hTabWindowToolbar = CreateTabToolbar(m_hTabBacking, TABTOOLBAR_CLOSE, szTabCloseTip);
+	m_hTabWindowToolbar = CreateTabToolbar(m_hTabBacking, TABTOOLBAR_CLOSE,
+		ResourceHelper::LoadString(m_hLanguageModule, IDS_TAB_CLOSE_TIP));
 
 	AddTabsInitializedObserver(boost::bind(&Explorerplusplus::OnTabsInitialized, this));
 }
@@ -37,7 +38,8 @@ void Explorerplusplus::OnTabsInitialized()
 		UpdateTabToolbar();
 	});
 
-	m_tabContainer->tabUpdatedSignal.AddObserver(boost::bind(&Explorerplusplus::OnTabUpdated, this, _1, _2));
+	m_tabContainer->tabUpdatedSignal.AddObserver(
+		boost::bind(&Explorerplusplus::OnTabUpdated, this, _1, _2));
 
 	m_tabContainer->tabSelectedSignal.AddObserver([this](const Tab &tab) {
 		UNREFERENCED_PARAMETER(tab);
@@ -77,13 +79,11 @@ void Explorerplusplus::UpdateTabToolbar()
 	if (nTabs > 1 && selectedTab.GetLockState() == Tab::LockState::NotLocked)
 	{
 		/* Enable the tab close button. */
-		SendMessage(m_hTabWindowToolbar, TB_SETSTATE,
-			TABTOOLBAR_CLOSE, TBSTATE_ENABLED);
+		SendMessage(m_hTabWindowToolbar, TB_SETSTATE, TABTOOLBAR_CLOSE, TBSTATE_ENABLED);
 	}
 	else
 	{
 		/* Disable the tab close toolbar button. */
-		SendMessage(m_hTabWindowToolbar, TB_SETSTATE,
-			TABTOOLBAR_CLOSE, TBSTATE_INDETERMINATE);
+		SendMessage(m_hTabWindowToolbar, TB_SETSTATE, TABTOOLBAR_CLOSE, TBSTATE_INDETERMINATE);
 	}
 }

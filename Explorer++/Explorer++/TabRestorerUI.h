@@ -4,20 +4,18 @@
 
 #pragma once
 
-#include "CoreInterface.h"
-#include "PreservedTab.h"
 #include "TabRestorer.h"
 #include "../Helper/Macros.h"
 #include <boost/signals2.hpp>
 #include <wil/com.h>
 #include <wil/resource.h>
-#include <tuple>
 #include <unordered_map>
+
+__interface IExplorerplusplus;
 
 class TabRestorerUI
 {
 public:
-
 	TabRestorerUI(HINSTANCE instance, IExplorerplusplus *expp, TabRestorer *tabRestorer,
 		int menuStartId, int menuEndId);
 	~TabRestorerUI();
@@ -25,7 +23,6 @@ public:
 	void OnMenuItemClicked(int menuItemId);
 
 private:
-
 	DISALLOW_COPY_AND_ASSIGN(TabRestorerUI);
 
 	static const int MAX_MENU_ITEMS = 10;

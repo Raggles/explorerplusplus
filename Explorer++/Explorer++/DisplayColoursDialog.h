@@ -36,28 +36,28 @@ public:
 
 protected:
 
-	INT_PTR	OnInitDialog();
-	INT_PTR	OnHScroll(HWND hwnd);
-	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
-	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
+	INT_PTR	OnInitDialog() override;
+	INT_PTR	OnHScroll(HWND hwnd) override;
+	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam) override;
+	INT_PTR	OnClose() override;
+	INT_PTR	OnDestroy() override;
 
-	void	SaveState();
+	void	SaveState() override;
 
 private:
 
-	enum Color_t
+	enum class Color
 	{
-		COLOR_RED,
-		COLOR_GREEN,
-		COLOR_BLUE
+		Red,
+		Green,
+		Blue
 	};
 
 	struct ColorGroup_t
 	{
-		UINT	SliderId;
-		UINT	EditId;
-		Color_t	Color;
+		UINT	sliderId;
+		UINT	editId;
+		Color	color;
 	};
 
 	static const int	NUM_COLORS = 3;
@@ -65,7 +65,6 @@ private:
 
 	void			OnRestoreDefaults();
 	void			OnChooseFont();
-	void			OnHScroll();
 	void			OnEnChange(UINT ControlID);
 
 	void			OnOk();
@@ -73,7 +72,7 @@ private:
 
 	void			InitializeColorGroups();
 	void			InitializeColorGroupControls(ColorGroup_t ColorGroup[NUM_COLORS]);
-	void			SetColorGroupValues(ColorGroup_t ColorGroup[NUM_COLORS],COLORREF Color);
+	void			SetColorGroupValues(ColorGroup_t ColorGroup[NUM_COLORS],COLORREF color);
 	void			InitializePreviewWindow();
 
 	void			UpdateEditControlsFromSlider(ColorGroup_t ColorGroup[NUM_COLORS]);

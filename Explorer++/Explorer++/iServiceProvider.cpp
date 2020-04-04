@@ -8,8 +8,8 @@
 
 #include "stdafx.h"
 #include "iServiceProvider.h"
+#include "CoreInterface.h"
 #include "INewMenuClient.h"
-
 
 ServiceProvider::ServiceProvider(IExplorerplusplus *pexpp) :
 m_pexpp(pexpp),
@@ -20,7 +20,7 @@ m_RefCount(1)
 
 HRESULT __stdcall ServiceProvider::QueryInterface(REFIID iid,void **ppvObject)
 {
-	*ppvObject = NULL;
+	*ppvObject = nullptr;
 
 	if(iid == IID_IUnknown)
 	{
@@ -40,12 +40,12 @@ HRESULT __stdcall ServiceProvider::QueryInterface(REFIID iid,void **ppvObject)
 	return E_NOINTERFACE;
 }
 
-ULONG __stdcall ServiceProvider::AddRef(void)
+ULONG __stdcall ServiceProvider::AddRef()
 {
 	return ++m_RefCount;
 }
 
-ULONG __stdcall ServiceProvider::Release(void)
+ULONG __stdcall ServiceProvider::Release()
 {
 	m_RefCount--;
 	
@@ -69,7 +69,7 @@ HRESULT ServiceProvider::QueryService(REFGUID guidService,REFIID riid,void **ppv
 	menu). */
 	UNREFERENCED_PARAMETER(guidService);
 
-	*ppv = NULL;
+	*ppv = nullptr;
 
 	if(riid == IID_INewMenuClient)
 	{

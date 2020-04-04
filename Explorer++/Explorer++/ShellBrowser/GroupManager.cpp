@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "ShellBrowser.h"
 #include "Config.h"
+#include "ItemData.h"
 #include "MainResource.h"
 #include "ResourceHelper.h"
 #include "SortModes.h"
@@ -22,12 +23,12 @@
 
 namespace
 {
-	static const UINT KBYTE = 1024;
-	static const UINT MBYTE = 1024 * 1024;
-	static const UINT GBYTE = 1024 * 1024 *1024;
+	const UINT KBYTE = 1024;
+	const UINT MBYTE = 1024 * 1024;
+	const UINT GBYTE = 1024 * 1024 *1024;
 }
 
-BOOL ShellBrowser::GetShowInGroups(void) const
+BOOL ShellBrowser::GetShowInGroups() const
 {
 	return m_folderSettings.showInGroups;
 }
@@ -57,7 +58,7 @@ void ShellBrowser::SetShowInGroups(BOOL bShowInGroups)
 
 INT CALLBACK ShellBrowser::GroupNameComparisonStub(INT Group1_ID, INT Group2_ID, void *pvData)
 {
-	ShellBrowser *shellBrowser = reinterpret_cast<ShellBrowser *>(pvData);
+	auto *shellBrowser = reinterpret_cast<ShellBrowser *>(pvData);
 	return shellBrowser->GroupNameComparison(Group1_ID, Group2_ID);
 }
 
@@ -95,7 +96,7 @@ INT CALLBACK ShellBrowser::GroupNameComparison(INT Group1_ID, INT Group2_ID)
 
 INT CALLBACK ShellBrowser::GroupFreeSpaceComparisonStub(INT Group1_ID, INT Group2_ID, void *pvData)
 {
-	ShellBrowser *shellBrowser = reinterpret_cast<ShellBrowser *>(pvData);
+	auto *shellBrowser = reinterpret_cast<ShellBrowser *>(pvData);
 	return shellBrowser->GroupFreeSpaceComparison(Group1_ID, Group2_ID);
 }
 
@@ -417,8 +418,8 @@ std::wstring ShellBrowser::DetermineItemNameGroup(const BasicItemInfo_t &itemInf
  */
 std::wstring ShellBrowser::DetermineItemSizeGroup(const BasicItemInfo_t &itemInfo) const
 {
-	TCHAR *SizeGroups[] = {_T("Folders"),_T("Tiny"),_T("Small"),_T("Medium"),_T("Large"),_T("Huge")};
-	int SizeGroupLimits[] = {0,0,32 * KBYTE,100 * KBYTE,MBYTE,10 * MBYTE};
+	TCHAR *sizeGroups[] = {_T("Folders"),_T("Tiny"),_T("Small"),_T("Medium"),_T("Large"),_T("Huge")};
+	int sizeGroupLimits[] = {0,0,32 * KBYTE,100 * KBYTE,MBYTE,10 * MBYTE};
 	int nGroups = 6;
 	int iSize;
 	int i;
@@ -433,17 +434,17 @@ std::wstring ShellBrowser::DetermineItemSizeGroup(const BasicItemInfo_t &itemInf
 	{
 		i = nGroups - 1;
 
-		double FileSize = itemInfo.wfd.nFileSizeLow + (itemInfo.wfd.nFileSizeHigh * pow(2.0,32.0));
+		double fileSize = itemInfo.wfd.nFileSizeLow + (itemInfo.wfd.nFileSizeHigh * pow(2.0,32.0));
 
 		/* Check which of the size groups this item belongs to. */
-		while(FileSize < SizeGroupLimits[i]
+		while(fileSize < sizeGroupLimits[i]
 		&& i > 0)
 			i--;
 
 		iSize = i;
 	}
 
-	return SizeGroups[iSize];
+	return sizeGroups[iSize];
 }
 
 /*
@@ -455,25 +456,25 @@ std::wstring ShellBrowser::DetermineItemSizeGroup(const BasicItemInfo_t &itemInf
 /* TODO: These groups have changed as of Windows Vista. */
 std::wstring ShellBrowser::DetermineItemTotalSizeGroup(const BasicItemInfo_t &itemInfo) const
 {
-	IShellFolder *pShellFolder	= NULL;
-	PCITEMID_CHILD pidlRelative	= NULL;
-	TCHAR *SizeGroups[] = {_T("Unspecified"),_T("Small"),_T("Medium"),_T("Huge"),_T("Gigantic")};
+	IShellFolder *pShellFolder	= nullptr;
+	PCITEMID_CHILD pidlRelative	= nullptr;
+	TCHAR *sizeGroups[] = {_T("Unspecified"),_T("Small"),_T("Medium"),_T("Huge"),_T("Gigantic")};
 	TCHAR szItem[MAX_PATH];
 	STRRET str;
 	ULARGE_INTEGER nTotalBytes;
 	ULARGE_INTEGER nFreeBytes;
 	BOOL bRoot;
 	BOOL bRes = FALSE;
-	ULARGE_INTEGER TotalSizeGroupLimits[6];
+	ULARGE_INTEGER totalSizeGroupLimits[6];
 	int nGroups = 5;
 	int iSize = 0;
 	int i;
 
-	TotalSizeGroupLimits[0].QuadPart	= 0;
-	TotalSizeGroupLimits[1].QuadPart	= 0;
-	TotalSizeGroupLimits[2].QuadPart	= GBYTE;
-	TotalSizeGroupLimits[3].QuadPart	= 20 * TotalSizeGroupLimits[2].QuadPart;
-	TotalSizeGroupLimits[4].QuadPart	= 100 * TotalSizeGroupLimits[2].QuadPart;
+	totalSizeGroupLimits[0].QuadPart	= 0;
+	totalSizeGroupLimits[1].QuadPart	= 0;
+	totalSizeGroupLimits[2].QuadPart	= GBYTE;
+	totalSizeGroupLimits[3].QuadPart	= 20 * totalSizeGroupLimits[2].QuadPart;
+	totalSizeGroupLimits[4].QuadPart	= 100 * totalSizeGroupLimits[2].QuadPart;
 
 	SHBindToParent(itemInfo.pidlComplete.get(), IID_PPV_ARGS(&pShellFolder), &pidlRelative);
 
@@ -484,13 +485,13 @@ std::wstring ShellBrowser::DetermineItemTotalSizeGroup(const BasicItemInfo_t &it
 
 	if(bRoot)
 	{
-		bRes = GetDiskFreeSpaceEx(szItem,NULL,&nTotalBytes,&nFreeBytes);
+		bRes = GetDiskFreeSpaceEx(szItem, nullptr,&nTotalBytes,&nFreeBytes);
 
 		pShellFolder->Release();
 
 		i = nGroups - 1;
 
-		while(nTotalBytes.QuadPart < TotalSizeGroupLimits[i].QuadPart && i > 0)
+		while(nTotalBytes.QuadPart < totalSizeGroupLimits[i].QuadPart && i > 0)
 			i--;
 
 		iSize = i;
@@ -501,7 +502,7 @@ std::wstring ShellBrowser::DetermineItemTotalSizeGroup(const BasicItemInfo_t &it
 		iSize = 0;
 	}
 
-	return SizeGroups[iSize];
+	return sizeGroups[iSize];
 }
 
 std::wstring ShellBrowser::DetermineItemTypeGroupVirtual(const BasicItemInfo_t &itemInfo) const
@@ -552,7 +553,7 @@ std::wstring ShellBrowser::DetermineItemDateGroup(const BasicItemInfo_t &itemInf
 		return ResourceHelper::LoadString(m_hResourceModule, IDS_GROUPBY_UNSPECIFIED);
 	}
 
-	ptime filePosixTime = from_ftime<ptime>(localFileTime);
+	auto filePosixTime = from_ftime<ptime>(localFileTime);
 	date fileDate = filePosixTime.date();
 
 	date today = day_clock::local_day();
@@ -641,8 +642,8 @@ std::wstring ShellBrowser::DetermineItemSummaryGroup(const BasicItemInfo_t &item
 std::wstring ShellBrowser::DetermineItemFreeSpaceGroup(const BasicItemInfo_t &itemInfo) const
 {
 	TCHAR szFreeSpace[MAX_PATH];
-	IShellFolder *pShellFolder	= NULL;
-	PCITEMID_CHILD pidlRelative	= NULL;
+	IShellFolder *pShellFolder	= nullptr;
+	PCITEMID_CHILD pidlRelative	= nullptr;
 	STRRET str;
 	TCHAR szItem[MAX_PATH];
 	ULARGE_INTEGER nTotalBytes;
@@ -662,7 +663,7 @@ std::wstring ShellBrowser::DetermineItemFreeSpaceGroup(const BasicItemInfo_t &it
 
 	if(bRoot)
 	{
-		bRes = GetDiskFreeSpaceEx(szItem,NULL,&nTotalBytes,&nFreeBytes);
+		bRes = GetDiskFreeSpaceEx(szItem, nullptr,&nTotalBytes,&nFreeBytes);
 
 		LARGE_INTEGER lDiv1;
 		LARGE_INTEGER lDiv2;
@@ -762,8 +763,8 @@ std::wstring ShellBrowser::DetermineItemExtensionGroup(const BasicItemInfo_t &it
 
 std::wstring ShellBrowser::DetermineItemFileSystemGroup(const BasicItemInfo_t &itemInfo) const
 {
-	IShellFolder *pShellFolder	= NULL;
-	PCITEMID_CHILD pidlRelative	= NULL;
+	IShellFolder *pShellFolder	= nullptr;
+	PCITEMID_CHILD pidlRelative	= nullptr;
 	TCHAR szFileSystemName[MAX_PATH];
 	TCHAR szItem[MAX_PATH];
 	STRRET str;
@@ -780,7 +781,7 @@ std::wstring ShellBrowser::DetermineItemFileSystemGroup(const BasicItemInfo_t &i
 
 	if(bRoot)
 	{
-		bRes = GetVolumeInformation(szItem,NULL,0,NULL,NULL,NULL,szFileSystemName,
+		bRes = GetVolumeInformation(szItem, nullptr,0, nullptr, nullptr, nullptr,szFileSystemName,
 			SIZEOF_ARRAY(szFileSystemName));
 
 		if(!bRes || *szFileSystemName == '\0')
@@ -807,15 +808,15 @@ std::wstring ShellBrowser::DetermineItemNetworkStatus(const BasicItemInfo_t &ite
 	UNREFERENCED_PARAMETER(itemInfo);
 
 	TCHAR szStatus[32] = EMPTY_STRING;
-	IP_ADAPTER_ADDRESSES *pAdapterAddresses = NULL;
+	IP_ADAPTER_ADDRESSES *pAdapterAddresses = nullptr;
 	UINT uStatusID = 0;
 	ULONG ulOutBufLen = 0;
 
-	GetAdaptersAddresses(AF_UNSPEC,0,NULL,NULL,&ulOutBufLen);
+	GetAdaptersAddresses(AF_UNSPEC,0, nullptr, nullptr,&ulOutBufLen);
 
 	pAdapterAddresses = (IP_ADAPTER_ADDRESSES *)malloc(ulOutBufLen);
 
-	GetAdaptersAddresses(AF_UNSPEC,0,NULL,pAdapterAddresses,&ulOutBufLen);
+	GetAdaptersAddresses(AF_UNSPEC,0, nullptr,pAdapterAddresses,&ulOutBufLen);
 
 	/* TODO: These strings need to be setup correctly. */
 	/*switch(pAdapterAddresses->OperStatus)
@@ -857,19 +858,19 @@ std::wstring ShellBrowser::DetermineItemNetworkStatus(const BasicItemInfo_t &ite
 
 void ShellBrowser::InsertItemIntoGroup(int iItem,int iGroupId)
 {
-	LVITEM Item;
+	LVITEM item;
 
 	/* Move the item into the group. */
-	Item.mask		= LVIF_GROUPID;
-	Item.iItem		= iItem;
-	Item.iSubItem	= 0;
-	Item.iGroupId	= iGroupId;
-	ListView_SetItem(m_hListView,&Item);
+	item.mask		= LVIF_GROUPID;
+	item.iItem		= iItem;
+	item.iSubItem	= 0;
+	item.iGroupId	= iGroupId;
+	ListView_SetItem(m_hListView,&item);
 }
 
-void ShellBrowser::MoveItemsIntoGroups(void)
+void ShellBrowser::MoveItemsIntoGroups()
 {
-	LVITEM Item;
+	LVITEM item;
 	int nItems;
 	int iGroupId;
 	int i = 0;
@@ -886,12 +887,12 @@ void ShellBrowser::MoveItemsIntoGroups(void)
 
 	for(i = 0;i < nItems ;i++)
 	{
-		Item.mask		= LVIF_PARAM;
-		Item.iItem		= i;
-		Item.iSubItem	= 0;
-		ListView_GetItem(m_hListView,&Item);
+		item.mask		= LVIF_PARAM;
+		item.iItem		= i;
+		item.iSubItem	= 0;
+		ListView_GetItem(m_hListView,&item);
 
-		iGroupId = DetermineItemGroup((int)Item.lParam);
+		iGroupId = DetermineItemGroup((int)item.lParam);
 
 		InsertItemIntoGroup(i,iGroupId);
 	}

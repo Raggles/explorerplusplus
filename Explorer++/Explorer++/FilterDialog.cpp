@@ -4,13 +4,11 @@
 
 #include "stdafx.h"
 #include "FilterDialog.h"
-#include "Explorer++_internal.h"
+#include "CoreInterface.h"
 #include "IconResourceLoader.h"
 #include "MainResource.h"
 #include "ResourceHelper.h"
 #include "ShellBrowser/ShellBrowser.h"
-#include "../Helper/Helper.h"
-#include "../Helper/Macros.h"
 #include "../Helper/RegistrySettings.h"
 #include "../Helper/XMLSettings.h"
 #include <list>
@@ -63,27 +61,27 @@ void FilterDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstrai
 {
 	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_X;
 
-	ResizableDialog::Control_t Control;
+	ResizableDialog::Control_t control;
 
-	Control.iID = IDC_FILTER_COMBOBOX;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_FILTER_COMBOBOX;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDOK;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDOK;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDCANCEL;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDCANCEL;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_GRIPPER;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_GRIPPER;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 }
 
 INT_PTR FilterDialog::OnCommand(WPARAM wParam,LPARAM lParam)
@@ -198,6 +196,6 @@ void FilterDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bst
 	if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE, bstrName, lstrlen(SETTING_FILTER_LIST),
 		SETTING_FILTER_LIST, lstrlen(SETTING_FILTER_LIST)) == CSTR_EQUAL)
 	{
-		m_FilterList.push_back(bstrValue);
+		m_FilterList.emplace_back(bstrValue);
 	}
 }

@@ -4,21 +4,20 @@
 
 #pragma once
 
-#include "CoreInterface.h"
-#include "ShellBrowser/FolderSettings.h"
-#include "ShellBrowser/ShellBrowser.h"
 #include "TabNavigationInterface.h"
 #include "../Helper/Macros.h"
-#include <boost/optional.hpp>
-#include <boost/parameter.hpp>
 #include <boost/signals2.hpp>
+#include <optional>
 
+struct FolderColumns;
+struct FolderSettings;
+__interface IExplorerplusplus;
 struct PreservedTab;
+class ShellBrowser;
 
 class Tab
 {
 public:
-
 	enum class PropertyType
 	{
 		Name,
@@ -32,11 +31,13 @@ public:
 		AddressLocked
 	};
 
-	typedef boost::signals2::signal<void(const Tab &tab, PropertyType propertyType)> TabUpdatedSignal;
+	typedef boost::signals2::signal<void(const Tab &tab, PropertyType propertyType)>
+		TabUpdatedSignal;
 
-	Tab(IExplorerplusplus *expp, TabNavigationInterface *tabNavigation, const FolderSettings *folderSettings,
-		boost::optional<FolderColumns> initialColumns);
-	Tab(const PreservedTab &preservedTab, IExplorerplusplus *expp, TabNavigationInterface *tabNavigation);
+	Tab(IExplorerplusplus *expp, TabNavigationInterface *tabNavigation,
+		const FolderSettings *folderSettings, std::optional<FolderColumns> initialColumns);
+	Tab(const PreservedTab &preservedTab, IExplorerplusplus *expp,
+		TabNavigationInterface *tabNavigation);
 
 	int GetId() const;
 
@@ -57,10 +58,9 @@ public:
 	about any column defaults.
 	Therefore, it makes more sense
 	for this setting to remain here. */
-	//BOOL	bUsingDefaultColumns;
+	// BOOL	bUsingDefaultColumns;
 
 private:
-
 	DISALLOW_COPY_AND_ASSIGN(Tab);
 
 	static int idCounter;

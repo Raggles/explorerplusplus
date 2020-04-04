@@ -4,11 +4,13 @@
 
 #include "stdafx.h"
 #include "SearchDialog.h"
+#include "CoreInterface.h"
 #include "DialogHelper.h"
-#include "Explorer++_internal.h"
 #include "IconResourceLoader.h"
 #include "MainResource.h"
 #include "ResourceHelper.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "TabContainer.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/ComboBox.h"
 #include "../Helper/Controls.h"
@@ -69,7 +71,7 @@ SearchDialog::SearchDialog(HINSTANCE hInstance, HWND hParent, std::wstring_view 
 
 SearchDialog::~SearchDialog()
 {
-	if(m_pSearch != NULL)
+	if(m_pSearch != nullptr)
 	{
 		m_pSearch->StopSearching();
 		m_pSearch->Release();
@@ -89,10 +91,10 @@ INT_PTR SearchDialog::OnInitDialog()
 		LVS_EX_GRIDLINES|LVS_EX_DOUBLEBUFFER);
 
 	HIMAGELIST himlSmall;
-	Shell_GetImageLists(NULL,&himlSmall);
+	Shell_GetImageLists(nullptr,&himlSmall);
 	ListView_SetImageList(hListView,himlSmall,LVSIL_SMALL);
 
-	SetWindowTheme(hListView,L"Explorer",NULL);
+	SetWindowTheme(hListView,L"Explorer", nullptr);
 
 	int i = 0;
 
@@ -131,7 +133,7 @@ INT_PTR SearchDialog::OnInitDialog()
 			reinterpret_cast<LPARAM>(strDirectory.c_str()));
 	}
 
-	for(const auto strPattern : m_persistentSettings->m_searchPatterns)
+	for(const auto &strPattern : m_persistentSettings->m_searchPatterns)
 	{
 		SendDlgItemMessage(m_hDlg,IDC_COMBO_NAME,CB_INSERTSTRING,static_cast<WPARAM>(-1),
 			reinterpret_cast<LPARAM>(strPattern.c_str()));
@@ -171,77 +173,77 @@ void SearchDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstrai
 {
 	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
 
-	ResizableDialog::Control_t Control;
+	ResizableDialog::Control_t control;
 
-	Control.iID = IDC_COMBO_NAME;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_COMBO_NAME;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_COMBO_DIRECTORY;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_COMBO_DIRECTORY;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_BUTTON_DIRECTORY;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_BUTTON_DIRECTORY;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_LISTVIEW_SEARCHRESULTS;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_LISTVIEW_SEARCHRESULTS;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_STATIC_STATUSLABEL;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_STATIC_STATUSLABEL;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_STATIC_STATUS;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_STATIC_STATUS;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_STATIC_STATUS;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_STATIC_STATUS;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_LINK_STATUS;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_LINK_STATUS;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_LINK_STATUS;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_LINK_STATUS;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_STATIC_ETCHEDHORZ;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_STATIC_ETCHEDHORZ;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_STATIC_ETCHEDHORZ;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_STATIC_ETCHEDHORZ;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDSEARCH;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDSEARCH;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDEXIT;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDEXIT;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_GRIPPER;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_GRIPPER;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 }
 
 INT_PTR SearchDialog::OnCommand(WPARAM wParam,LPARAM lParam)
@@ -267,7 +269,7 @@ INT_PTR SearchDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 			GetDlgItemText(m_hDlg,IDC_COMBO_DIRECTORY,szDirectory,SIZEOF_ARRAY(szDirectory));
 
 			bi.hwndOwner		= m_hDlg;
-			bi.pidlRoot			= NULL;
+			bi.pidlRoot			= nullptr;
 			bi.pszDisplayName	= szDisplayName;
 			bi.lpszTitle		= szTitle;
 			bi.ulFlags			= BIF_RETURNONLYFSDIRS|BIF_NEWDIALOGSTYLE;
@@ -275,7 +277,7 @@ INT_PTR SearchDialog::OnCommand(WPARAM wParam,LPARAM lParam)
 			bi.lParam			= reinterpret_cast<LPARAM>(szDirectory);
 			unique_pidl_absolute pidl(SHBrowseForFolder(&bi));
 
-			if(pidl != NULL)
+			if(pidl != nullptr)
 			{
 				GetDisplayName(pidl.get(),szParsingPath,SIZEOF_ARRAY(szParsingPath),SHGDN_FORPARSING);
 				SetDlgItemText(m_hDlg,IDC_COMBO_DIRECTORY,szParsingPath);
@@ -301,7 +303,7 @@ int CALLBACK NSearchDialog::BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam
 
 	assert(lpData != NULL);
 
-	TCHAR *szSearchPattern = reinterpret_cast<TCHAR *>(lpData);
+	auto *szSearchPattern = reinterpret_cast<TCHAR *>(lpData);
 
 	switch(uMsg)
 	{
@@ -429,8 +431,8 @@ void SearchDialog::StartSearching()
 	m_bSearching = TRUE;
 
 	/* Create a background thread, and search using it... */
-	HANDLE hThread = CreateThread(NULL, 0, NSearchDialog::SearchThread,
-		reinterpret_cast<LPVOID>(m_pSearch), 0, NULL);
+	HANDLE hThread = CreateThread(nullptr, 0, NSearchDialog::SearchThread,
+		reinterpret_cast<LPVOID>(m_pSearch), 0, nullptr);
 	CloseHandle(hThread);
 }
 
@@ -441,9 +443,9 @@ void SearchDialog::SaveEntry(int comboBoxId, boost::circular_buffer<std::wstring
 
 	std::wstring strEntry(entry);
 	auto itr = std::find_if(buffer.begin(), buffer.end(),
-		[strEntry] (const std::wstring Pattern)
+		[strEntry] (const std::wstring &Pattern)
 	{
-		return Pattern.compare(strEntry) == 0;
+		return Pattern == strEntry;
 	});
 
 	HWND hComboBox = GetDlgItem(m_hDlg, comboBoxId);
@@ -475,7 +477,7 @@ void SearchDialog::StopSearching()
 {
 	m_bStopSearching = TRUE;
 
-	if(m_pSearch != NULL)
+	if(m_pSearch != nullptr)
 	{
 		/* Note that m_pSearch does not need to be
 		released here. Once the search object finishes,
@@ -515,7 +517,7 @@ void SearchDialog::UpdateListViewHeader()
 
 	for(const auto &ci : m_persistentSettings->m_Columns)
 	{
-		if(ci.SortMode == m_persistentSettings->m_SortMode)
+		if(ci.sortMode == m_persistentSettings->m_SortMode)
 		{
 			break;
 		}
@@ -544,7 +546,7 @@ int CALLBACK NSearchDialog::SortResultsStub(LPARAM lParam1,LPARAM lParam2,LPARAM
 {
 	assert(lParamSort != NULL);
 
-	SearchDialog *psd = reinterpret_cast<SearchDialog *>(lParamSort);
+	auto *psd = reinterpret_cast<SearchDialog *>(lParamSort);
 
 	return psd->SortResults(lParam1,lParam2);
 }
@@ -555,11 +557,11 @@ int CALLBACK SearchDialog::SortResults(LPARAM lParam1,LPARAM lParam2)
 
 	switch(m_persistentSettings->m_SortMode)
 	{
-	case SearchDialogPersistentSettings::SORT_NAME:
+	case SearchDialogPersistentSettings::SortMode::Name:
 		iRes = SortResultsByName(lParam1,lParam2);
 		break;
 
-	case SearchDialogPersistentSettings::SORT_PATH:
+	case SearchDialogPersistentSettings::SortMode::Path:
 		iRes = SortResultsByPath(lParam1,lParam2);
 		break;
 	}
@@ -612,12 +614,12 @@ void SearchDialog::AddMenuEntries(PCIDLIST_ABSOLUTE pidlParent,
 	UNREFERENCED_PARAMETER(dwData);
 
 	unique_pidl_absolute pidlComplete(ILCombine(pidlParent, pidlItems.front()));
-	SFGAOF ItemAttributes = SFGAO_FOLDER;
-	GetItemAttributes(pidlComplete.get(),&ItemAttributes);
+	SFGAOF itemAttributes = SFGAO_FOLDER;
+	GetItemAttributes(pidlComplete.get(),&itemAttributes);
 
 	TCHAR szTemp[64];
 
-	if((ItemAttributes & SFGAO_FOLDER) == SFGAO_FOLDER)
+	if((itemAttributes & SFGAO_FOLDER) == SFGAO_FOLDER)
 	{
 		LoadString(GetInstance(),IDS_SEARCH_OPEN_FOLDER_LOCATION,
 			szTemp,SIZEOF_ARRAY(szTemp));
@@ -717,10 +719,10 @@ INT_PTR SearchDialog::OnNotify(NMHDR *pnmhdr)
 		{
 			if(pnmhdr->hwndFrom == GetDlgItem(m_hDlg,IDC_LINK_STATUS))
 			{
-				PNMLINK pnmlink = reinterpret_cast<PNMLINK>(pnmhdr);
+				auto pnmlink = reinterpret_cast<PNMLINK>(pnmhdr);
 
-				ShellExecute(NULL,L"open",pnmlink->item.szUrl,
-					NULL,NULL,SW_SHOW);
+				ShellExecute(nullptr,L"open",pnmlink->item.szUrl,
+					nullptr, nullptr,SW_SHOW);
 			}
 		}
 		break;
@@ -777,17 +779,17 @@ INT_PTR SearchDialog::OnNotify(NMHDR *pnmhdr)
 		{
 			/* A listview header has been clicked,
 			so sort by that column. */
-			NMLISTVIEW *pnmlv = reinterpret_cast<NMLISTVIEW *>(pnmhdr);
+			auto *pnmlv = reinterpret_cast<NMLISTVIEW *>(pnmhdr);
 
 			/* If the column clicked matches the current sort mode,
 			flip the sort direction, else switch to that sort mode. */
-			if(m_persistentSettings->m_Columns[pnmlv->iSubItem].SortMode == m_persistentSettings->m_SortMode)
+			if(m_persistentSettings->m_Columns[pnmlv->iSubItem].sortMode == m_persistentSettings->m_SortMode)
 			{
 				m_persistentSettings->m_bSortAscending = !m_persistentSettings->m_bSortAscending;
 			}
 			else
 			{
-				m_persistentSettings->m_SortMode = m_persistentSettings->m_Columns[pnmlv->iSubItem].SortMode;
+				m_persistentSettings->m_SortMode = m_persistentSettings->m_Columns[pnmlv->iSubItem].sortMode;
 				m_persistentSettings->m_bSortAscending = m_persistentSettings->m_Columns[pnmlv->iSubItem].bSortAscending;
 			}
 
@@ -817,7 +819,7 @@ INT_PTR SearchDialog::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 				if(m_bSetSearchTimer)
 				{
 					SetTimer(m_hDlg,SEARCH_PROCESSITEMS_TIMER_ID,
-						SEARCH_PROCESSITEMS_TIMER_ELAPSED,NULL);
+						SEARCH_PROCESSITEMS_TIMER_ELAPSED, nullptr);
 
 					m_bSetSearchTimer = FALSE;
 				}
@@ -848,10 +850,10 @@ INT_PTR SearchDialog::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 					SetDlgItemText(m_hDlg,IDC_STATIC_STATUS,szTemp);
 				}
 
-				assert(m_pSearch != NULL);
+				assert(m_pSearch != nullptr);
 
 				m_pSearch->Release();
-				m_pSearch = NULL;
+				m_pSearch = nullptr;
 
 				m_bSearching = FALSE;
 				m_bStopSearching = FALSE;
@@ -862,7 +864,7 @@ INT_PTR SearchDialog::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 		case NSearchDialog::WM_APP_SEARCHCHANGEDDIRECTORY:
 			{
 				TCHAR szStatus[512];
-				TCHAR *pszDirectory = NULL;
+				TCHAR *pszDirectory = nullptr;
 
 				pszDirectory = reinterpret_cast<TCHAR *>(wParam);
 
@@ -890,10 +892,10 @@ INT_PTR SearchDialog::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 					szTemp,SIZEOF_ARRAY(szTemp));
 				SetDlgItemText(m_hDlg,IDC_LINK_STATUS,szTemp);
 
-				assert(m_pSearch != NULL);
+				assert(m_pSearch != nullptr);
 
 				m_pSearch->Release();
-				m_pSearch = NULL;
+				m_pSearch = nullptr;
 
 				m_bSearching = FALSE;
 				m_bStopSearching = FALSE;
@@ -981,9 +983,9 @@ INT_PTR SearchDialog::OnNcDestroy()
 
 DWORD WINAPI NSearchDialog::SearchThread(LPVOID pParam)
 {
-	assert(pParam != NULL);
+	assert(pParam != nullptr);
 
-	Search *pSearch = reinterpret_cast<Search *>(pParam);
+	auto *pSearch = reinterpret_cast<Search *>(pParam);
 	pSearch->StartSearching();
 
 	return 0;
@@ -1054,9 +1056,9 @@ void Search::SearchDirectory(const TCHAR *szDirectory)
 	SendMessage(m_hDlg,NSearchDialog::WM_APP_SEARCHCHANGEDDIRECTORY,
 		reinterpret_cast<WPARAM>(szDirectory),0);
 
-	std::list<std::wstring> SubFolderList;
+	std::list<std::wstring> subFolderList;
 
-	SearchDirectoryInternal(szDirectory,&SubFolderList);
+	SearchDirectoryInternal(szDirectory,&subFolderList);
 
 	bool bStop = false;
 
@@ -1074,7 +1076,7 @@ void Search::SearchDirectory(const TCHAR *szDirectory)
 
 	if(m_bSearchSubFolders)
 	{
-		for(const auto &strSubFolder : SubFolderList)
+		for(const auto &strSubFolder : subFolderList)
 		{
 			SearchDirectory(strSubFolder.c_str());
 		}
@@ -1085,8 +1087,8 @@ void Search::SearchDirectory(const TCHAR *szDirectory)
 void Search::SearchDirectoryInternal(const TCHAR *szSearchDirectory,
 	std::list<std::wstring> *pSubFolderList)
 {
-	assert(szSearchDirectory != NULL);
-	assert(pSubFolderList != NULL);
+	assert(szSearchDirectory != nullptr);
+	assert(pSubFolderList != nullptr);
 
 	WIN32_FIND_DATA wfd;
 	TCHAR szSearchTerm[MAX_PATH];
@@ -1251,17 +1253,17 @@ SearchDialogPersistentSettings::SearchDialogPersistentSettings() :
 		EMPTY_STRING);
 
 	ColumnInfo_t ci;
-	ci.SortMode			= SORT_NAME;
+	ci.sortMode			= SortMode::Name;
 	ci.uStringID		= IDS_SEARCH_COLUMN_NAME;
 	ci.bSortAscending	= true;
 	m_Columns.push_back(ci);
 
-	ci.SortMode			= SORT_PATH;
+	ci.sortMode			= SortMode::Path;
 	ci.uStringID		= IDS_SEARCH_COLUMN_PATH;
 	ci.bSortAscending	= true;
 	m_Columns.push_back(ci);
 
-	m_SortMode			= m_Columns.front().SortMode;
+	m_SortMode			= m_Columns.front().sortMode;
 	m_bSortAscending	= m_Columns.front().bSortAscending;
 }
 
@@ -1283,16 +1285,16 @@ void SearchDialogPersistentSettings::SaveExtraRegistrySettings(HKEY hKey)
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_HIDDEN, m_bHidden);
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_READ_ONLY, m_bReadOnly);
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_SYSTEM, m_bSystem);
-	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_SORT_MODE, m_SortMode);
+	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_SORT_MODE, static_cast<DWORD>(m_SortMode));
 	NRegistrySettings::SaveDwordToRegistry(hKey, SETTING_SORT_ASCENDING, m_bSortAscending);
 
-	std::list<std::wstring> SearchDirectoriesList;
-	CircularBufferToList(m_searchDirectories, SearchDirectoriesList);
-	NRegistrySettings::SaveStringListToRegistry(hKey, SETTING_DIRECTORY_LIST, SearchDirectoriesList);
+	std::list<std::wstring> searchDirectoriesList;
+	CircularBufferToList(m_searchDirectories, searchDirectoriesList);
+	NRegistrySettings::SaveStringListToRegistry(hKey, SETTING_DIRECTORY_LIST, searchDirectoriesList);
 
-	std::list<std::wstring> SearchPatternList;
-	CircularBufferToList(m_searchPatterns,SearchPatternList);
-	NRegistrySettings::SaveStringListToRegistry(hKey, SETTING_PATTERN_LIST, SearchPatternList);
+	std::list<std::wstring> searchPatternList;
+	CircularBufferToList(m_searchPatterns,searchPatternList);
+	NRegistrySettings::SaveStringListToRegistry(hKey, SETTING_PATTERN_LIST, searchPatternList);
 }
 
 void SearchDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
@@ -1307,16 +1309,19 @@ void SearchDialogPersistentSettings::LoadExtraRegistrySettings(HKEY hKey)
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_HIDDEN, reinterpret_cast<LPDWORD>(&m_bHidden));
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_READ_ONLY, reinterpret_cast<LPDWORD>(&m_bReadOnly));
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_SYSTEM, reinterpret_cast<LPDWORD>(&m_bSystem));
-	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_SORT_MODE, reinterpret_cast<LPDWORD>(&m_SortMode));
 	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_SORT_ASCENDING, reinterpret_cast<LPDWORD>(&m_bSortAscending));
 
-	std::list<std::wstring> SearchDirectoriesList;
-	NRegistrySettings::ReadStringListFromRegistry(hKey, SETTING_DIRECTORY_LIST, SearchDirectoriesList);
-	ListToCircularBuffer(SearchDirectoriesList, m_searchDirectories);
+	DWORD value;
+	NRegistrySettings::ReadDwordFromRegistry(hKey, SETTING_SORT_MODE, &value);
+	m_SortMode = static_cast<SortMode>(value);
 
-	std::list<std::wstring> SearchPatternList;
-	NRegistrySettings::ReadStringListFromRegistry(hKey, SETTING_PATTERN_LIST, SearchPatternList);
-	ListToCircularBuffer(SearchPatternList, m_searchPatterns);
+	std::list<std::wstring> searchDirectoriesList;
+	NRegistrySettings::ReadStringListFromRegistry(hKey, SETTING_DIRECTORY_LIST, searchDirectoriesList);
+	ListToCircularBuffer(searchDirectoriesList, m_searchDirectories);
+
+	std::list<std::wstring> searchPatternList;
+	NRegistrySettings::ReadStringListFromRegistry(hKey, SETTING_PATTERN_LIST, searchPatternList);
+	ListToCircularBuffer(searchPatternList, m_searchPatterns);
 }
 
 void SearchDialogPersistentSettings::SaveExtraXMLSettings(
@@ -1332,16 +1337,16 @@ void SearchDialogPersistentSettings::SaveExtraXMLSettings(
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_HIDDEN, NXMLSettings::EncodeBoolValue(m_bHidden));
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_READ_ONLY, NXMLSettings::EncodeBoolValue(m_bReadOnly));
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_SYSTEM, NXMLSettings::EncodeBoolValue(m_bSystem));
-	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_SORT_MODE, NXMLSettings::EncodeIntValue(m_SortMode));
+	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_SORT_MODE, NXMLSettings::EncodeIntValue(static_cast<int>(m_SortMode)));
 	NXMLSettings::AddAttributeToNode(pXMLDom, pParentNode, SETTING_SORT_ASCENDING, NXMLSettings::EncodeBoolValue(m_bSortAscending));
 
-	std::list<std::wstring> SearchDirectoriesList;
-	CircularBufferToList(m_searchDirectories, SearchDirectoriesList);
-	NXMLSettings::AddStringListToNode(pXMLDom, pParentNode, SETTING_DIRECTORY_LIST, SearchDirectoriesList);
+	std::list<std::wstring> searchDirectoriesList;
+	CircularBufferToList(m_searchDirectories, searchDirectoriesList);
+	NXMLSettings::AddStringListToNode(pXMLDom, pParentNode, SETTING_DIRECTORY_LIST, searchDirectoriesList);
 
-	std::list<std::wstring> SearchPatternList;
-	CircularBufferToList(m_searchPatterns, SearchPatternList);
-	NXMLSettings::AddStringListToNode(pXMLDom, pParentNode, SETTING_PATTERN_LIST, SearchPatternList);
+	std::list<std::wstring> searchPatternList;
+	CircularBufferToList(m_searchPatterns, searchPatternList);
+	NXMLSettings::AddStringListToNode(pXMLDom, pParentNode, SETTING_PATTERN_LIST, searchPatternList);
 }
 
 void SearchDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bstrValue)
@@ -1388,18 +1393,7 @@ void SearchDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,BSTR bst
 	}
 	else if(lstrcmpi(bstrName, SETTING_SORT_MODE) == 0)
 	{
-		int SortMode = NXMLSettings::DecodeIntValue(bstrValue);
-
-		switch(SortMode)
-		{
-		case SORT_NAME:
-			m_SortMode = SORT_NAME;
-			break;
-
-		case SORT_PATH:
-			m_SortMode = SORT_PATH;
-			break;
-		}
+		m_SortMode = static_cast<SortMode>(NXMLSettings::DecodeIntValue(bstrValue));
 	}
 	else if(lstrcmpi(bstrName, SETTING_SORT_ASCENDING) == 0)
 	{
@@ -1421,9 +1415,9 @@ template <typename T>
 void SearchDialogPersistentSettings::CircularBufferToList(const boost::circular_buffer<T> &cb,
 	std::list<T> &list)
 {
-	for(auto Item : cb)
+	for(const auto &item : cb)
 	{
-		list.push_back(Item);
+		list.push_back(item);
 	}
 }
 
@@ -1431,8 +1425,8 @@ template <typename T>
 void SearchDialogPersistentSettings::ListToCircularBuffer(const std::list<T> &list,
 	boost::circular_buffer<T> &cb)
 {
-	for(auto Item : list)
+	for(const auto &item : list)
 	{
-		cb.push_back(Item);
+		cb.push_back(item);
 	}
 }

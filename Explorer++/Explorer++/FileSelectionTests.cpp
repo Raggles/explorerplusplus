@@ -4,7 +4,9 @@
 
 #include "stdafx.h"
 #include "Explorer++.h"
-#include "../MyTreeView/MyTreeView.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "ShellTreeView/ShellTreeView.h"
+#include "TabContainer.h"
 
 BOOL Explorerplusplus::AnyItemsSelected() const
 {
@@ -21,7 +23,7 @@ BOOL Explorerplusplus::AnyItemsSelected() const
 	}
 	else if (hFocus == m_hTreeView)
 	{
-		if (TreeView_GetSelection(m_hTreeView) != NULL)
+		if (TreeView_GetSelection(m_hTreeView) != nullptr)
 		{
 			return TRUE;
 		}
@@ -162,11 +164,11 @@ HRESULT Explorerplusplus::GetListViewItemAttributes(const Tab &tab, int item, SF
 HRESULT Explorerplusplus::GetTreeViewSelectionAttributes(SFGAOF *pItemAttributes) const
 {
 	HRESULT hr = E_FAIL;
-	HTREEITEM hItem = TreeView_GetSelection(m_hTreeView);
+	auto hItem = TreeView_GetSelection(m_hTreeView);
 
-	if (hItem != NULL)
+	if (hItem != nullptr)
 	{
-		auto pidl = m_pMyTreeView->GetItemPidl(hItem);
+		auto pidl = m_shellTreeView->GetItemPidl(hItem);
 		hr = GetItemAttributes(pidl.get(), pItemAttributes);
 	}
 
@@ -199,11 +201,11 @@ BOOL Explorerplusplus::CanPaste() const
 	}
 	else if (hFocus == m_hTreeView)
 	{
-		HTREEITEM hItem = TreeView_GetSelection(m_hTreeView);
+		auto hItem = TreeView_GetSelection(m_hTreeView);
 
-		if (hItem != NULL)
+		if (hItem != nullptr)
 		{
-			auto pidl = m_pMyTreeView->GetItemPidl(hItem);
+			auto pidl = m_shellTreeView->GetItemPidl(hItem);
 
 			SFGAOF attributes = SFGAO_FILESYSTEM;
 			HRESULT hr = GetItemAttributes(pidl.get(), &attributes);

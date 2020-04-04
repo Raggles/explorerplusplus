@@ -4,10 +4,9 @@
 
 #include "stdafx.h"
 #include "DisplayColoursDialog.h"
+#include "DisplayWindow/DisplayWindow.h"
 #include "MainResource.h"
-#include "../DisplayWindow/DisplayWindow.h"
 #include "../Helper/Macros.h"
-#include <list>
 
 
 const TCHAR DisplayColoursDialogPersistentSettings::SETTINGS_KEY[] = _T("DisplayColors");
@@ -34,31 +33,31 @@ INT_PTR DisplayColoursDialog::OnInitDialog()
 
 void DisplayColoursDialog::InitializeColorGroups()
 {
-	m_CenterGroup[0].SliderId	= IDC_SLIDER_CENTRE_RED;
-	m_CenterGroup[0].EditId		= IDC_EDIT_CENTRE_RED;
-	m_CenterGroup[0].Color		= COLOR_RED;
+	m_CenterGroup[0].sliderId	= IDC_SLIDER_CENTRE_RED;
+	m_CenterGroup[0].editId		= IDC_EDIT_CENTRE_RED;
+	m_CenterGroup[0].color		= Color::Red;
 
-	m_CenterGroup[1].SliderId	= IDC_SLIDER_CENTRE_GREEN;
-	m_CenterGroup[1].EditId		= IDC_EDIT_CENTRE_GREEN;
-	m_CenterGroup[1].Color		= COLOR_GREEN;
+	m_CenterGroup[1].sliderId	= IDC_SLIDER_CENTRE_GREEN;
+	m_CenterGroup[1].editId		= IDC_EDIT_CENTRE_GREEN;
+	m_CenterGroup[1].color		= Color::Green;
 
-	m_CenterGroup[2].SliderId	= IDC_SLIDER_CENTRE_BLUE;
-	m_CenterGroup[2].EditId		= IDC_EDIT_CENTRE_BLUE;
-	m_CenterGroup[2].Color		= COLOR_BLUE;
+	m_CenterGroup[2].sliderId	= IDC_SLIDER_CENTRE_BLUE;
+	m_CenterGroup[2].editId		= IDC_EDIT_CENTRE_BLUE;
+	m_CenterGroup[2].color		= Color::Blue;
 
 	InitializeColorGroupControls(m_CenterGroup);
 
-	m_SurroundingGroup[0].SliderId	= IDC_SLIDER_SURROUND_RED;
-	m_SurroundingGroup[0].EditId	= IDC_EDIT_SURROUND_RED;
-	m_SurroundingGroup[0].Color	= COLOR_RED;
+	m_SurroundingGroup[0].sliderId	= IDC_SLIDER_SURROUND_RED;
+	m_SurroundingGroup[0].editId	= IDC_EDIT_SURROUND_RED;
+	m_SurroundingGroup[0].color	= Color::Red;
 
-	m_SurroundingGroup[1].SliderId	= IDC_SLIDER_SURROUND_GREEN;
-	m_SurroundingGroup[1].EditId	= IDC_EDIT_SURROUND_GREEN;
-	m_SurroundingGroup[1].Color	= COLOR_GREEN;
+	m_SurroundingGroup[1].sliderId	= IDC_SLIDER_SURROUND_GREEN;
+	m_SurroundingGroup[1].editId	= IDC_EDIT_SURROUND_GREEN;
+	m_SurroundingGroup[1].color	= Color::Green;
 
-	m_SurroundingGroup[2].SliderId	= IDC_SLIDER_SURROUND_BLUE;
-	m_SurroundingGroup[2].EditId	= IDC_EDIT_SURROUND_BLUE;
-	m_SurroundingGroup[2].Color	= COLOR_BLUE;
+	m_SurroundingGroup[2].sliderId	= IDC_SLIDER_SURROUND_BLUE;
+	m_SurroundingGroup[2].editId	= IDC_EDIT_SURROUND_BLUE;
+	m_SurroundingGroup[2].color	= Color::Blue;
 
 	InitializeColorGroupControls(m_SurroundingGroup);
 }
@@ -67,30 +66,30 @@ void DisplayColoursDialog::InitializeColorGroupControls(ColorGroup_t ColorGroup[
 {
 	for(int i = 0;i < NUM_COLORS;i++)
 	{
-		SendDlgItemMessage(m_hDlg,ColorGroup[i].SliderId,TBM_SETTICFREQ,TICK_REQUENCY,0);
-		SendDlgItemMessage(m_hDlg,ColorGroup[i].SliderId,TBM_SETRANGE,TRUE,MAKELONG(0,255));
-		SendDlgItemMessage(m_hDlg,ColorGroup[i].EditId,EM_SETLIMITTEXT,3,0);
+		SendDlgItemMessage(m_hDlg,ColorGroup[i].sliderId,TBM_SETTICFREQ,TICK_REQUENCY,0);
+		SendDlgItemMessage(m_hDlg,ColorGroup[i].sliderId,TBM_SETRANGE,TRUE,MAKELONG(0,255));
+		SendDlgItemMessage(m_hDlg,ColorGroup[i].editId,EM_SETLIMITTEXT,3,0);
 	}
 }
 
-void DisplayColoursDialog::SetColorGroupValues(ColorGroup_t ColorGroup[NUM_COLORS],COLORREF Color)
+void DisplayColoursDialog::SetColorGroupValues(ColorGroup_t ColorGroup[NUM_COLORS],COLORREF color)
 {
 	for(int i = 0;i < NUM_COLORS;i++)
 	{
-		UINT ColorComponent = 0;
+		UINT colorComponent = 0;
 
-		switch(ColorGroup[i].Color)
+		switch(ColorGroup[i].color)
 		{
-		case COLOR_RED:
-			ColorComponent = GetRValue(Color);
+		case Color::Red:
+			colorComponent = GetRValue(color);
 			break;
 
-		case COLOR_GREEN:
-			ColorComponent = GetGValue(Color);
+		case Color::Green:
+			colorComponent = GetGValue(color);
 			break;
 
-		case COLOR_BLUE:
-			ColorComponent = GetBValue(Color);
+		case Color::Blue:
+			colorComponent = GetBValue(color);
 			break;
 
 		default:
@@ -98,34 +97,34 @@ void DisplayColoursDialog::SetColorGroupValues(ColorGroup_t ColorGroup[NUM_COLOR
 			break;
 		}
 
-		SetDlgItemInt(m_hDlg,ColorGroup[i].EditId,ColorComponent,FALSE);
-		SendDlgItemMessage(m_hDlg,ColorGroup[i].SliderId,TBM_SETPOS,TRUE,ColorComponent);
+		SetDlgItemInt(m_hDlg,ColorGroup[i].editId,colorComponent,FALSE);
+		SendDlgItemMessage(m_hDlg,ColorGroup[i].sliderId,TBM_SETPOS,TRUE,colorComponent);
 	}
 }
 
 void DisplayColoursDialog::InitializePreviewWindow()
 {
-	COLORREF CentreColor = static_cast<COLORREF>(SendMessage(m_hDisplayWindow,DWM_GETCENTRECOLOR,0,0));
-	COLORREF SurroundColor = static_cast<COLORREF>(SendMessage(m_hDisplayWindow,DWM_GETSURROUNDCOLOR,0,0));
+	auto centreColor = static_cast<COLORREF>(SendMessage(m_hDisplayWindow,DWM_GETCENTRECOLOR,0,0));
+	auto surroundColor = static_cast<COLORREF>(SendMessage(m_hDisplayWindow,DWM_GETSURROUNDCOLOR,0,0));
 
 	DisplayWindow_GetFont(m_hDisplayWindow,reinterpret_cast<WPARAM>(&m_hDisplayFont));
 	m_TextColor = DisplayWindow_GetTextColor(m_hDisplayWindow);
 
-	m_hDisplayWindowIcon = reinterpret_cast<HICON>(LoadImage(GetModuleHandle(NULL),
+	m_hDisplayWindowIcon = reinterpret_cast<HICON>(LoadImage(GetModuleHandle(nullptr),
 		MAKEINTRESOURCE(IDI_DISPLAYWINDOW),IMAGE_ICON,0,0,LR_CREATEDIBSECTION));
 
-	DWInitialSettings_t InitialSettings;
-	InitialSettings.CentreColor		= CentreColor;
-	InitialSettings.SurroundColor	= SurroundColor;
-	InitialSettings.TextColor		= m_TextColor;
-	InitialSettings.hFont			= m_hDisplayFont;
-	InitialSettings.hIcon			= m_hDisplayWindowIcon;
+	DWInitialSettings_t initialSettings;
+	initialSettings.CentreColor		= centreColor;
+	initialSettings.SurroundColor	= surroundColor;
+	initialSettings.TextColor		= m_TextColor;
+	initialSettings.hFont			= m_hDisplayFont;
+	initialSettings.hIcon			= m_hDisplayWindowIcon;
 
 	HWND hStatic = GetDlgItem(m_hDlg,IDC_STATIC_PREVIEWDISPLAY);
-	m_hPreviewDisplayWindow = CreateDisplayWindow(hStatic,&InitialSettings);
+	m_hPreviewDisplayWindow = CreateDisplayWindow(hStatic,&initialSettings);
 
-	SendMessage(m_hPreviewDisplayWindow,DWM_SETSURROUNDCOLOR,SurroundColor,0);
-	SendMessage(m_hPreviewDisplayWindow,DWM_SETCENTRECOLOR,CentreColor,0);
+	SendMessage(m_hPreviewDisplayWindow,DWM_SETSURROUNDCOLOR,surroundColor,0);
+	SendMessage(m_hPreviewDisplayWindow,DWM_SETCENTRECOLOR,centreColor,0);
 	DisplayWindow_SetFont(m_hPreviewDisplayWindow,reinterpret_cast<WPARAM>(m_hDisplayFont));
 	DisplayWindow_SetTextColor(m_hPreviewDisplayWindow,m_TextColor);
 
@@ -143,10 +142,10 @@ void DisplayColoursDialog::InitializePreviewWindow()
 
 	RECT rc;
 	GetWindowRect(hStatic,&rc);
-	SetWindowPos(m_hPreviewDisplayWindow,NULL,0,0,rc.right,rc.bottom,SWP_SHOWWINDOW|SWP_NOZORDER);
+	SetWindowPos(m_hPreviewDisplayWindow, nullptr,0,0,rc.right,rc.bottom,SWP_SHOWWINDOW|SWP_NOZORDER);
 
-	SetColorGroupValues(m_CenterGroup,CentreColor);
-	SetColorGroupValues(m_SurroundingGroup,SurroundColor);
+	SetColorGroupValues(m_CenterGroup,centreColor);
+	SetColorGroupValues(m_SurroundingGroup,surroundColor);
 }
 
 INT_PTR DisplayColoursDialog::OnCommand(WPARAM wParam,LPARAM lParam)
@@ -254,11 +253,11 @@ void DisplayColoursDialog::UpdateEditControlsFromSlider(ColorGroup_t ColorGroup[
 {
 	for(int i = 0;i < NUM_COLORS;i++)
 	{
-		UINT ColorComponent = static_cast<UINT>(SendDlgItemMessage(m_hDlg,ColorGroup[i].SliderId,TBM_GETPOS,0,0));
+		UINT colorComponent = static_cast<UINT>(SendDlgItemMessage(m_hDlg,ColorGroup[i].sliderId,TBM_GETPOS,0,0));
 
-		if(GetDlgItemInt(m_hDlg,ColorGroup[i].EditId,NULL,FALSE) != ColorComponent)
+		if(GetDlgItemInt(m_hDlg,ColorGroup[i].editId, nullptr,FALSE) != colorComponent)
 		{
-			SetDlgItemInt(m_hDlg,ColorGroup[i].EditId,ColorComponent,FALSE);
+			SetDlgItemInt(m_hDlg,ColorGroup[i].editId,colorComponent,FALSE);
 		}
 	}
 }
@@ -271,20 +270,20 @@ COLORREF DisplayColoursDialog::GetColorFromSliderGroup(ColorGroup_t ColorGroup[N
 
 	for(int i = 0;i < NUM_COLORS;i++)
 	{
-		UINT ColorComponent = static_cast<UINT>(SendDlgItemMessage(m_hDlg,ColorGroup[i].SliderId,TBM_GETPOS,0,0));
+		UINT colorComponent = static_cast<UINT>(SendDlgItemMessage(m_hDlg,ColorGroup[i].sliderId,TBM_GETPOS,0,0));
 
-		switch(ColorGroup[i].Color)
+		switch(ColorGroup[i].color)
 		{
-		case COLOR_RED:
-			r = ColorComponent;
+		case Color::Red:
+			r = colorComponent;
 			break;
 
-		case COLOR_GREEN:
-			g = ColorComponent;
+		case Color::Green:
+			g = colorComponent;
 			break;
 
-		case COLOR_BLUE:
-			b = ColorComponent;
+		case Color::Blue:
+			b = colorComponent;
 			break;
 
 		default:
@@ -298,15 +297,15 @@ COLORREF DisplayColoursDialog::GetColorFromSliderGroup(ColorGroup_t ColorGroup[N
 
 void DisplayColoursDialog::OnEnChange(UINT ControlID)
 {
-	BOOL Translated;
-	UINT Value = GetDlgItemInt(m_hDlg,ControlID,&Translated,FALSE);
+	BOOL translated;
+	UINT value = GetDlgItemInt(m_hDlg,ControlID,&translated,FALSE);
 
-	if(!Translated)
+	if(!translated)
 	{
 		return;
 	}
 
-	HWND hTrackBar = NULL;
+	HWND hTrackBar = nullptr;
 
 	switch(ControlID)
 	{
@@ -335,31 +334,31 @@ void DisplayColoursDialog::OnEnChange(UINT ControlID)
 		break;
 	}
 
-	SendMessage(hTrackBar,TBM_SETPOS,TRUE,Value);
+	SendMessage(hTrackBar,TBM_SETPOS,TRUE,value);
 
 	if(ControlID == IDC_EDIT_CENTRE_RED ||
 		ControlID == IDC_EDIT_CENTRE_GREEN ||
 		ControlID == IDC_EDIT_CENTRE_BLUE)
 	{
-		COLORREF Color = GetColorFromSliderGroup(m_CenterGroup);
-		SendMessage(m_hPreviewDisplayWindow,DWM_SETCENTRECOLOR,Color,0);
+		COLORREF color = GetColorFromSliderGroup(m_CenterGroup);
+		SendMessage(m_hPreviewDisplayWindow,DWM_SETCENTRECOLOR,color,0);
 	}
 	else if(ControlID == IDC_EDIT_SURROUND_RED ||
 		ControlID == IDC_EDIT_SURROUND_GREEN ||
 		ControlID == IDC_EDIT_SURROUND_BLUE)
 	{
-		COLORREF Color = GetColorFromSliderGroup(m_SurroundingGroup);
-		SendMessage(m_hPreviewDisplayWindow,DWM_SETSURROUNDCOLOR,Color,0);
+		COLORREF color = GetColorFromSliderGroup(m_SurroundingGroup);
+		SendMessage(m_hPreviewDisplayWindow,DWM_SETSURROUNDCOLOR,color,0);
 	}
 }
 
 void DisplayColoursDialog::OnOk()
 {
-	COLORREF CenterColor = GetColorFromSliderGroup(m_CenterGroup);
-	SendMessage(m_hDisplayWindow,DWM_SETCENTRECOLOR,CenterColor,0);
+	COLORREF centerColor = GetColorFromSliderGroup(m_CenterGroup);
+	SendMessage(m_hDisplayWindow,DWM_SETCENTRECOLOR,centerColor,0);
 
-	COLORREF SurroundingColor = GetColorFromSliderGroup(m_SurroundingGroup);
-	SendMessage(m_hDisplayWindow,DWM_SETSURROUNDCOLOR,SurroundingColor,0);
+	COLORREF surroundingColor = GetColorFromSliderGroup(m_SurroundingGroup);
+	SendMessage(m_hDisplayWindow,DWM_SETSURROUNDCOLOR,surroundingColor,0);
 
 	DisplayWindow_SetFont(m_hDisplayWindow,reinterpret_cast<WPARAM>(m_hDisplayFont));
 	DisplayWindow_SetTextColor(m_hDisplayWindow,m_TextColor);

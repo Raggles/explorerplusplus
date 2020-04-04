@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <list>
-#include "Helper.h"
-#include "FileOperations.h"
 #include "ReferenceCount.h"
+#include <list>
 
 enum class DragType
 {
@@ -42,7 +40,7 @@ private:
 	~DropHandler() = default;
 
 	void	HandleLeftClickDrop(IDataObject *pDataObject,POINTL *pptl);
-	void	HandleRightClickDrop(void);
+	void	HandleRightClickDrop();
 
 	BOOL	CheckDropFormatSupported(IDataObject *pDataObject,FORMATETC *pftc);
 

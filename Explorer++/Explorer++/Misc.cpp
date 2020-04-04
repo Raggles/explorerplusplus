@@ -5,11 +5,15 @@
 #include "stdafx.h"
 #include "Explorer++.h"
 #include "Config.h"
+#include "DisplayWindow/DisplayWindow.h"
 #include "Explorer++_internal.h"
 #include "HardwareChangeNotifier.h"
 #include "MainResource.h"
 #include "SelectColumnsDialog.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "TabContainer.h"
 #include "../Helper/Controls.h"
+#include "../Helper/FileOperations.h"
 #include "../Helper/Logging.h"
 #include "../Helper/Macros.h"
 #include "../Helper/WindowHelper.h"
@@ -19,6 +23,9 @@ void Explorerplusplus::ValidateLoadedSettings()
 {
 	if(m_config->treeViewWidth <= 0)
 		m_config->treeViewWidth = Config::DEFAULT_TREEVIEW_WIDTH;
+
+	if(m_config->displayWindowWidth < MINIMUM_DISPLAYWINDOW_WIDTH)
+		m_config->displayWindowWidth = Config::DEFAULT_DISPLAYWINDOW_WIDTH;
 
 	if(m_config->displayWindowHeight < MINIMUM_DISPLAYWINDOW_HEIGHT)
 		m_config->displayWindowHeight = Config::DEFAULT_DISPLAYWINDOW_HEIGHT;
@@ -39,10 +46,10 @@ void Explorerplusplus::ValidateColumns(FolderColumns &folderColumns)
 
 void Explorerplusplus::ValidateSingleColumnSet(int iColumnSet, std::vector<Column_t> &columns)
 {
-	Column_t					Column;
-	int							*pColumnMap = NULL;
+	Column_t					column;
+	int							*pColumnMap = nullptr;
 	BOOL						bFound = FALSE;
-	const Column_t				*pColumns = NULL;
+	const Column_t				*pColumns = nullptr;
 	unsigned int				iTotalColumnSize = 0;
 	unsigned int				i = 0;
 
@@ -109,17 +116,22 @@ void Explorerplusplus::ValidateSingleColumnSet(int iColumnSet, std::vector<Colum
 		/* The column is not currently in the set. Add it in. */
 		if(!bFound)
 		{
-			Column.id		= pColumns[i].id;
-			Column.bChecked	= pColumns[i].bChecked;
-			Column.iWidth	= DEFAULT_COLUMN_WIDTH;
-			columns.push_back(Column);
+			column.id		= pColumns[i].id;
+			column.bChecked	= pColumns[i].bChecked;
+			column.iWidth	= DEFAULT_COLUMN_WIDTH;
+			columns.push_back(column);
 		}
 	}
 
 	free(pColumnMap);
 }
 
-void Explorerplusplus::ApplyToolbarSettings(void)
+void Explorerplusplus::ApplyDisplayWindowPosition()
+{
+	SendMessage(m_hDisplayWindow, WM_USER_DISPLAYWINDOWMOVED, m_config->displayWindowVertical, NULL);
+}
+
+void Explorerplusplus::ApplyToolbarSettings()
 {
 	BOOL bVisible = FALSE;
 	int i = 0;
@@ -164,11 +176,11 @@ void Explorerplusplus::ApplyToolbarSettings(void)
 	}
 }
 
-void Explorerplusplus::AdjustFolderPanePosition(void)
+void Explorerplusplus::AdjustFolderPanePosition()
 {
 	RECT rcMainWindow;
-	int IndentTop		= 0;
-	int IndentBottom	= 0;
+	int indentTop		= 0;
+	int indentBottom	= 0;
 	int height;
 
 	GetClientRect(m_hContainer,&rcMainWindow);
@@ -176,29 +188,28 @@ void Explorerplusplus::AdjustFolderPanePosition(void)
 
 	if(m_hMainRebar)
 	{
-		RECT RebarRect;
+		RECT rebarRect;
 
-		GetWindowRect(m_hMainRebar,&RebarRect);
+		GetWindowRect(m_hMainRebar,&rebarRect);
 
-		IndentTop += RebarRect.bottom - RebarRect.top;
+		indentTop += rebarRect.bottom - rebarRect.top;
 	}
 
 	if(m_config->showStatusBar)
 	{
-		RECT m_hStatusBarRect;
+		RECT statusBarRect;
 
-		GetWindowRect(m_hStatusBar,&m_hStatusBarRect);
+		GetWindowRect(m_hStatusBar,&statusBarRect);
 
-		IndentBottom += m_hStatusBarRect.bottom - m_hStatusBarRect.top;
+		indentBottom += statusBarRect.bottom - statusBarRect.top;
 	}
 
-	if(m_config->showDisplayWindow)
+	if(m_config->showDisplayWindow && !m_config->displayWindowVertical)
 	{
 		RECT rcDisplayWindow;
+		GetWindowRect(m_hDisplayWindow, &rcDisplayWindow);
 
-		GetWindowRect(m_hDisplayWindow,&rcDisplayWindow);
-
-		IndentBottom += rcDisplayWindow.bottom - rcDisplayWindow.top;
+		indentBottom += rcDisplayWindow.bottom - rcDisplayWindow.top;
 	}
 
 	if(m_config->showFolders)
@@ -206,8 +217,8 @@ void Explorerplusplus::AdjustFolderPanePosition(void)
 		RECT rcHolder;
 		GetClientRect(m_hHolder,&rcHolder);
 
-		SetWindowPos(m_hHolder,NULL,0,IndentTop,rcHolder.right,
-		height-IndentBottom-IndentTop,SWP_SHOWWINDOW|SWP_NOZORDER);
+		SetWindowPos(m_hHolder, nullptr,0,indentTop,rcHolder.right,
+		height-indentBottom-indentTop,SWP_SHOWWINDOW|SWP_NOZORDER);
 	}
 }
 
@@ -286,8 +297,8 @@ Possible bugs:
 void Explorerplusplus::DirectoryAlteredCallback(const TCHAR *szFileName,DWORD dwAction,
 void *pData)
 {
-	DirectoryAltered_t	*pDirectoryAltered = NULL;
-	Explorerplusplus			*pContainer = NULL;
+	DirectoryAltered_t	*pDirectoryAltered = nullptr;
+	Explorerplusplus			*pContainer = nullptr;
 
 	pDirectoryAltered = (DirectoryAltered_t *)pData;
 	pContainer = (Explorerplusplus *)pDirectoryAltered->pData;
@@ -307,7 +318,7 @@ void *pData)
 
 void Explorerplusplus::FolderSizeCallbackStub(int nFolders,int nFiles,PULARGE_INTEGER lTotalFolderSize,LPVOID pData)
 {
-	Explorerplusplus::FolderSizeExtraInfo_t *pfsei = reinterpret_cast<Explorerplusplus::FolderSizeExtraInfo_t *>(pData);
+	auto *pfsei = reinterpret_cast<Explorerplusplus::FolderSizeExtraInfo_t *>(pData);
 	reinterpret_cast<Explorerplusplus *>(pfsei->pContainer)->FolderSizeCallback(pfsei,nFolders,nFiles,lTotalFolderSize);
 	free(pfsei);
 }
@@ -318,7 +329,7 @@ int nFolders,int nFiles,PULARGE_INTEGER lTotalFolderSize)
 	UNREFERENCED_PARAMETER(nFolders);
 	UNREFERENCED_PARAMETER(nFiles);
 
-	DWFolderSizeCompletion_t *pDWFolderSizeCompletion = NULL;
+	DWFolderSizeCompletion_t *pDWFolderSizeCompletion = nullptr;
 
 	pDWFolderSizeCompletion = (DWFolderSizeCompletion_t *)malloc(sizeof(DWFolderSizeCompletion_t));
 
@@ -335,10 +346,9 @@ int nFolders,int nFiles,PULARGE_INTEGER lTotalFolderSize)
 
 void Explorerplusplus::OnSelectColumns()
 {
-	SelectColumnsDialog selectColumnsDialog(m_hLanguageModule, m_hContainer, this, m_tabContainer);
+	SelectColumnsDialog selectColumnsDialog(m_hLanguageModule, m_hContainer,
+		m_tabContainer->GetSelectedTab().GetShellBrowser(), m_iconResourceLoader.get());
 	selectColumnsDialog.ShowModalDialog();
-
-	UpdateSortMenuItems(m_tabContainer->GetSelectedTab());
 }
 
 StatusBar *Explorerplusplus::GetStatusBar()

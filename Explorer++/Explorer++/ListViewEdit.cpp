@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "ListViewEdit.h"
+#include "CoreInterface.h"
 #include "Explorer++_internal.h"
 #include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/Helper.h"
@@ -19,7 +20,7 @@ ListViewEdit::ListViewEdit(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp) :
 BaseWindow(hwnd),
 m_ItemIndex(ItemIndex),
 m_pexpp(pexpp),
-m_RenameStage(RENAME_FILENAME),
+m_RenameStage(RenameStage::Filename),
 m_BeginRename(true)
 {
 	
@@ -37,12 +38,12 @@ void ListViewEdit::OnEMSetSel(WPARAM &wParam,LPARAM &lParam)
 		wParam == 0 &&
 		lParam == -1)
 	{
-		int Index = GetExtensionIndex();
+		int index = GetExtensionIndex();
 
-		if(Index != -1)
+		if(index != -1)
 		{
 			wParam = 0;
-			lParam = Index;
+			lParam = index;
 		}
 
 		m_BeginRename = false;
@@ -60,25 +61,25 @@ INT_PTR ListViewEdit::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 		{
 		case VK_F2:
 			{
-				int Index = GetExtensionIndex();
+				int index = GetExtensionIndex();
 
-				if(Index != -1)
+				if(index != -1)
 				{
 					switch(m_RenameStage)
 					{
-					case RENAME_FILENAME:
-						SendMessage(m_hwnd,EM_SETSEL,Index + 1,-1);
-						m_RenameStage = RENAME_EXTENSION;
+					case RenameStage::Filename:
+						SendMessage(m_hwnd,EM_SETSEL,index + 1,-1);
+						m_RenameStage = RenameStage::Extension;
 						break;
 
-					case RENAME_EXTENSION:
+					case RenameStage::Extension:
 						SendMessage(m_hwnd,EM_SETSEL,0,-1);
-						m_RenameStage = RENAME_ENTIRE;
+						m_RenameStage = RenameStage::Entire;
 						break;
 
-					case RENAME_ENTIRE:
-						SendMessage(m_hwnd,EM_SETSEL,0,Index);
-						m_RenameStage = RENAME_FILENAME;
+					case RenameStage::Entire:
+						SendMessage(m_hwnd,EM_SETSEL,0,index);
+						m_RenameStage = RenameStage::Filename;
 						break;
 
 					default:
@@ -94,7 +95,7 @@ INT_PTR ListViewEdit::OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam)
 				HWND hListView = GetParent(m_hwnd);
 
 				int iSel = ListView_GetNextItem(hListView,-1,LVNI_ALL|LVNI_SELECTED);
-				NListView::ListView_SelectItem(hListView,iSel,FALSE);
+				ListViewHelper::SelectItem(hListView,iSel,FALSE);
 
 				int nItems = ListView_GetItemCount(hListView);
 
@@ -140,7 +141,7 @@ int ListViewEdit::GetExtensionIndex()
 
 	DWORD dwAttributes = m_pexpp->GetActiveShellBrowser()->GetItemFileFindData(m_ItemIndex).dwFileAttributes;
 
-	int Index = -1;
+	int index = -1;
 
 	if((dwAttributes & FILE_ATTRIBUTE_DIRECTORY) !=
 		FILE_ATTRIBUTE_DIRECTORY)
@@ -149,11 +150,11 @@ int ListViewEdit::GetExtensionIndex()
 		{
 			if(szFileName[i] == '.')
 			{
-				Index = i;
+				index = i;
 				break;
 			}
 		}
 	}
 
-	return Index;
+	return index;
 }

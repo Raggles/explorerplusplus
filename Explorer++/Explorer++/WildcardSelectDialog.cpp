@@ -4,11 +4,11 @@
 
 #include "stdafx.h"
 #include "WildcardSelectDialog.h"
-#include "Explorer++_internal.h"
+#include "CoreInterface.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/BaseDialog.h"
-#include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/RegistrySettings.h"
@@ -31,7 +31,7 @@ WildcardSelectDialog::WildcardSelectDialog(HINSTANCE hInstance, HWND hParent,
 
 INT_PTR WildcardSelectDialog::OnInitDialog()
 {
-	m_icon.reset(LoadIcon(GetModuleHandle(0),MAKEINTRESOURCE(IDI_MAIN)));
+	m_icon.reset(LoadIcon(GetModuleHandle(nullptr),MAKEINTRESOURCE(IDI_MAIN)));
 	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_icon.get()));
 
 	HWND hComboBox = GetDlgItem(m_hDlg,IDC_SELECTGROUP_COMBOBOX);
@@ -45,10 +45,8 @@ INT_PTR WildcardSelectDialog::OnInitDialog()
 
 	if(!m_bSelect)
 	{
-		TCHAR szTemp[64];
-		LoadString(GetInstance(),IDS_WILDCARDDESELECTION,
-			szTemp,SIZEOF_ARRAY(szTemp));
-		SetWindowText(m_hDlg,szTemp);
+		std::wstring deselectTitle = ResourceHelper::LoadString(GetInstance(),IDS_WILDCARDDESELECTION);
+		SetWindowText(m_hDlg,deselectTitle.c_str());
 	}
 
 	SetFocus(hComboBox);
@@ -59,31 +57,31 @@ INT_PTR WildcardSelectDialog::OnInitDialog()
 }
 
 void WildcardSelectDialog::GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc,
-	std::list<ResizableDialog::Control_t> &ControlList)
+	std::list<ResizableDialog::Control_t> &controlList)
 {
 	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_X;
 
-	ResizableDialog::Control_t Control;
+	ResizableDialog::Control_t control;
 
-	Control.iID = IDC_SELECTGROUP_COMBOBOX;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_SELECTGROUP_COMBOBOX;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	controlList.push_back(control);
 
-	Control.iID = IDOK;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDOK;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	controlList.push_back(control);
 
-	Control.iID = IDCANCEL;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDCANCEL;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	controlList.push_back(control);
 
-	Control.iID = IDC_GRIPPER;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_GRIPPER;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	controlList.push_back(control);
 }
 
 INT_PTR WildcardSelectDialog::OnCommand(WPARAM wParam,LPARAM lParam)
@@ -152,7 +150,7 @@ void WildcardSelectDialog::SelectItems(TCHAR *szPattern)
 
 		if(CheckWildcardMatch(szPattern,szFilename,FALSE) == 1)
 		{
-			NListView::ListView_SelectItem(hListView,i,m_bSelect);
+			ListViewHelper::SelectItem(hListView,i,m_bSelect);
 		}
 	}
 }
@@ -215,7 +213,7 @@ void WildcardSelectDialogPersistentSettings::LoadExtraXMLSettings(BSTR bstrName,
 	if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE, bstrName, lstrlen(SETTING_PATTERN_LIST),
 		SETTING_PATTERN_LIST, lstrlen(SETTING_PATTERN_LIST)) == CSTR_EQUAL)
 	{
-		m_PatternList.push_back(bstrValue);
+		m_PatternList.emplace_back(bstrValue);
 	}
 	else if(lstrcmpi(bstrName, SETTING_CURRENT_TEXT) == 0)
 	{

@@ -17,6 +17,13 @@ environment:
   PFX_PASS:
     secure: rgMy2ixSiaW0sk2CwaHwO5pK8U98ynzt/jjiGNRSYPfaAcOTRZ5oX+fsgqn6qP54
 
+init:
+- ps: >-
+    if ($env:APPVEYOR_PULL_REQUEST_HEAD_REPO_BRANCH -eq "l10n_master") {
+        Write-Host "Skipping l10n_master branch pull request"
+        Exit-AppveyorBuild
+    }
+
 # Decrypt the code signing certificate.
 install:
 - cmd: >-
@@ -67,6 +74,23 @@ after_build:
 
 
     7z a explorer++_translations.zip %APPVEYOR_BUILD_FOLDER%\Explorer++\Win32\%CONFIGURATION%\Explorer++*.dll
+
+test_script:
+- ps: >-
+    cd $env:APPVEYOR_BUILD_FOLDER\Explorer++\TestExplorer++\$env:PLATFORM\$env:CONFIGURATION
+
+
+    # Run the tests.
+
+    .\TestExplorer++.exe --gtest_output=xml:TestExplorer++Output.xml
+
+
+    # Upload results to AppVeyor.
+
+    $wc = New-Object 'System.Net.WebClient'
+
+    $wc.UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\TestExplorer++Output.xml))
+
 artifacts:
 - path: explorer++_x86.zip
 - path: explorer++_x86_symbols.zip

@@ -7,6 +7,7 @@
 #include "Config.h"
 #include "Explorer++_internal.h"
 #include "MainResource.h"
+#include "ResourceHelper.h"
 #include "../Helper/ProcessHelper.h"
 
 /*
@@ -18,7 +19,7 @@ void Explorerplusplus::SetLanguageModule()
 {
 	HANDLE			hFindFile;
 	WIN32_FIND_DATA	wfd;
-	LANGID			LanguageID;
+	LANGID			languageId;
 	TCHAR			szLanguageModule[MAX_PATH];
 	TCHAR			szNamePattern[MAX_PATH];
 	TCHAR			szFullFileName[MAX_PATH];
@@ -49,15 +50,15 @@ void Explorerplusplus::SetLanguageModule()
 		{
 			/* No previous language loaded. Try and use the system
 			default language. */
-			LanguageID = GetUserDefaultUILanguage();
+			languageId = GetUserDefaultUILanguage();
 
-			m_config->language = PRIMARYLANGID(LanguageID);
+			m_config->language = PRIMARYLANGID(languageId);
 		}
 	}
 
 	if(m_config->language == LANG_ENGLISH)
 	{
-		m_hLanguageModule = GetModuleHandle(NULL);
+		m_hLanguageModule = GetModuleHandle(nullptr);
 	}
 	else
 	{
@@ -124,100 +125,87 @@ void Explorerplusplus::SetLanguageModule()
 
 			if(bLanguageMismatch)
 			{
-				TCHAR szTemp[256];
+				UINT stringId;
 
 				/* Attempt to show an error message in the language
 				that was specified. */
 				switch(wLanguage)
 				{
 				case LANG_CHINESE_SIMPLIFIED:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_CHINESE_SIMPLIFIED,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_CHINESE_SIMPLIFIED;
 					break;
 
 				case LANG_CZECH:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_CZECH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_CZECH;
 					break;
 
 				case LANG_DANISH:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_DANISH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_DANISH;
 					break;
 
 				case LANG_DUTCH:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_DUTCH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_DUTCH;
 					break;
 
 				case LANG_FRENCH:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_FRENCH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_FRENCH;
 					break;
 
 				case LANG_GERMAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_GERMAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_GERMAN;
 					break;
 
 				case LANG_ITALIAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_ITALIAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_ITALIAN;
 					break;
 
 				case LANG_JAPANESE:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_JAPANESE,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_JAPANESE;
 					break;
 
 				case LANG_KOREAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_KOREAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_KOREAN;
 					break;
 
 				case LANG_NORWEGIAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_NORWEGIAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_NORWEGIAN;
 					break;
 
 				case LANG_PORTUGUESE:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_PORTUGUESE,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_PORTUGUESE;
 					break;
 
 				case LANG_ROMANIAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_ROMANIAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_ROMANIAN;
 					break;
 
 				case LANG_RUSSIAN:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_RUSSIAN,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_RUSSIAN;
 					break;
 
 				case LANG_SPANISH:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_SPANISH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH_SPANISH;
 					break;
 
 				default:
-					LoadString(GetModuleHandle(NULL), IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH,
-						szTemp, SIZEOF_ARRAY(szTemp));
+					stringId = IDS_GENERAL_TRANSLATION_DLL_VERSION_MISMATCH;
 					break;
 				}
 
+				std::wstring versionMismatchMessage = ResourceHelper::LoadString(GetModuleHandle(nullptr), stringId);
+
 				/* Main window hasn't been constructed yet, so this
 				message box doesn't have any owner window. */
-				MessageBox(NULL, szTemp, NExplorerplusplus::APP_NAME, MB_ICONWARNING);
+				MessageBox(nullptr, versionMismatchMessage.c_str(), NExplorerplusplus::APP_NAME, MB_ICONWARNING);
 			}
 		}
 	}
 
 	/* The language DLL was not found/could not be loaded.
 	Use the default internal resource set. */
-	if(m_hLanguageModule == NULL)
+	if(m_hLanguageModule == nullptr)
 	{
-		m_hLanguageModule = GetModuleHandle(NULL);
+		m_hLanguageModule = GetModuleHandle(nullptr);
 
 		m_config->language = LANG_ENGLISH;
 	}

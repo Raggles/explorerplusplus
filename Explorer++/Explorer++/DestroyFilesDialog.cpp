@@ -17,7 +17,7 @@ const TCHAR DestroyFilesDialogPersistentSettings::SETTINGS_KEY[] = _T("DestroyFi
 const TCHAR DestroyFilesDialogPersistentSettings::SETTING_OVERWRITE_METHOD[] = _T("OverwriteMethod");
 
 DestroyFilesDialog::DestroyFilesDialog(HINSTANCE hInstance,
-	HWND hParent, std::list<std::wstring> FullFilenameList,
+	HWND hParent, const std::list<std::wstring> &FullFilenameList,
 	BOOL bShowFriendlyDates) :
 	BaseDialog(hInstance, IDD_DESTROYFILES, hParent, true)
 {
@@ -29,16 +29,16 @@ DestroyFilesDialog::DestroyFilesDialog(HINSTANCE hInstance,
 
 INT_PTR DestroyFilesDialog::OnInitDialog()
 {
-	m_icon.reset(LoadIcon(GetModuleHandle(0),MAKEINTRESOURCE(IDI_MAIN)));
+	m_icon.reset(LoadIcon(GetModuleHandle(nullptr),MAKEINTRESOURCE(IDI_MAIN)));
 	SetClassLongPtr(m_hDlg,GCLP_HICONSM,reinterpret_cast<LONG_PTR>(m_icon.get()));
 
 	HWND hListView = GetDlgItem(m_hDlg,IDC_DESTROYFILES_LISTVIEW);
 
 	HIMAGELIST himlSmall;
-	Shell_GetImageLists(NULL,&himlSmall);
+	Shell_GetImageLists(nullptr,&himlSmall);
 	ListView_SetImageList(hListView,himlSmall,LVSIL_SMALL);
 
-	SetWindowTheme(hListView,L"Explorer",NULL);
+	SetWindowTheme(hListView,L"Explorer", nullptr);
 
 	ListView_SetExtendedListViewStyleEx(hListView,
 		LVS_EX_DOUBLEBUFFER|LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES,
@@ -137,57 +137,57 @@ void DestroyFilesDialog::GetResizableControlInformation(BaseDialog::DialogSizeCo
 {
 	dsc = BaseDialog::DIALOG_SIZE_CONSTRAINT_NONE;
 
-	ResizableDialog::Control_t Control;
+	ResizableDialog::Control_t control;
 
-	Control.iID = IDC_DESTROYFILES_LISTVIEW;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_DESTROYFILES_LISTVIEW;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_GROUP;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_GROUP;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_GROUP;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_GROUP;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_DESTROYFILES_RADIO_ONEPASS;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_DESTROYFILES_RADIO_ONEPASS;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_DESTROYFILES_RADIO_THREEPASS;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_DESTROYFILES_RADIO_THREEPASS;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_DESTROYFILES_STATIC_WARNING_MESSAGE;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_Y;
-	ControlList.push_back(Control);
+	control.iID = IDC_DESTROYFILES_STATIC_WARNING_MESSAGE;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_Y;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_DESTROYFILES_STATIC_WARNING_MESSAGE;
-	Control.Type = ResizableDialog::TYPE_RESIZE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_X;
-	ControlList.push_back(Control);
+	control.iID = IDC_DESTROYFILES_STATIC_WARNING_MESSAGE;
+	control.Type = ResizableDialog::TYPE_RESIZE;
+	control.Constraint = ResizableDialog::CONSTRAINT_X;
+	ControlList.push_back(control);
 
-	Control.iID = IDOK;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDOK;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDCANCEL;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDCANCEL;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 
-	Control.iID = IDC_GRIPPER;
-	Control.Type = ResizableDialog::TYPE_MOVE;
-	Control.Constraint = ResizableDialog::CONSTRAINT_NONE;
-	ControlList.push_back(Control);
+	control.iID = IDC_GRIPPER;
+	control.Type = ResizableDialog::TYPE_MOVE;
+	control.Constraint = ResizableDialog::CONSTRAINT_NONE;
+	ControlList.push_back(control);
 }
 
 INT_PTR DestroyFilesDialog::OnCtlColorStatic(HWND hwnd,HDC hdc)
@@ -272,21 +272,21 @@ void DestroyFilesDialog::OnCancel()
 
 void DestroyFilesDialog::OnConfirmDestroy()
 {
-	NFileOperations::OverwriteMethod_t OverwriteMethod;
+	NFileOperations::OverwriteMethod_t overwriteMethod;
 
 	if(IsDlgButtonChecked(m_hDlg,IDC_DESTROYFILES_RADIO_ONEPASS) == BST_CHECKED)
 	{
-		OverwriteMethod = NFileOperations::OVERWRITE_ONEPASS;
+		overwriteMethod = NFileOperations::OVERWRITE_ONEPASS;
 	}
 	else
 	{
-		OverwriteMethod = NFileOperations::OVERWRITE_THREEPASS;
+		overwriteMethod = NFileOperations::OVERWRITE_THREEPASS;
 	}
 
 	/* TODO: Perform in background thread. */
 	for(const auto &strFullFilename : m_FullFilenameList)
 	{
-		DeleteFileSecurely(strFullFilename,OverwriteMethod);
+		DeleteFileSecurely(strFullFilename,overwriteMethod);
 	}
 
 	EndDialog(m_hDlg,1);

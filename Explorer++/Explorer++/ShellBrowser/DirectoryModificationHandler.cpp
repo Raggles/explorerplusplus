@@ -5,11 +5,8 @@
 #include "stdafx.h"
 #include "ShellBrowser.h"
 #include "Config.h"
+#include "ItemData.h"
 #include "ViewModes.h"
-#include "../Helper/Controls.h"
-#include "../Helper/FileOperations.h"
-#include "../Helper/FolderSize.h"
-#include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Logging.h"
 #include "../Helper/Macros.h"
@@ -19,7 +16,7 @@
 BOOL g_bNewFileRenamed = FALSE;
 static int iRenamedItem;
 
-void ShellBrowser::DirectoryAltered(void)
+void ShellBrowser::DirectoryAltered()
 {
 	BOOL bNewItemCreated;
 
@@ -118,11 +115,11 @@ void ShellBrowser::DirectoryAltered(void)
 
 		if(iIndex != -1)
 		{
-			NListView::ListView_SelectItem(m_hListView,iIndex,TRUE);
+			ListViewHelper::SelectItem(m_hListView,iIndex,TRUE);
 
 			if(!bFocusSet)
 			{
-				NListView::ListView_FocusItem(m_hListView,iIndex,TRUE);
+				ListViewHelper::FocusItem(m_hListView,iIndex,TRUE);
 				ListView_EnsureVisible(m_hListView,iIndex,TRUE);
 
 				bFocusSet = TRUE;
@@ -137,8 +134,6 @@ void ShellBrowser::DirectoryAltered(void)
 	}
 
 	LeaveCriticalSection(&m_csDirectoryAltered);
-
-	return;
 }
 
 void CALLBACK TimerProc(HWND hwnd,UINT uMsg,UINT_PTR idEvent,DWORD dwTime)
@@ -171,20 +166,20 @@ int EventId,int iFolderIndex)
 
 void ShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 {
-	IShellFolder	*pShellFolder = NULL;
-	PCITEMID_CHILD	pidlRelative = NULL;
-	Added_t			Added;
-	TCHAR			FullFileName[MAX_PATH];
+	IShellFolder	*pShellFolder = nullptr;
+	PCITEMID_CHILD	pidlRelative = nullptr;
+	Added_t			added;
+	TCHAR			fullFileName[MAX_PATH];
 	TCHAR			szDisplayName[MAX_PATH];
 	STRRET			str;
 	BOOL			bFileAdded = FALSE;
 	HRESULT hr;
 
-	StringCchCopy(FullFileName,SIZEOF_ARRAY(FullFileName),m_CurDir);
-	PathAppend(FullFileName,szFileName);
+	StringCchCopy(fullFileName,SIZEOF_ARRAY(fullFileName),m_CurDir);
+	PathAppend(fullFileName,szFileName);
 
 	unique_pidl_absolute pidlFull;
-	hr = SHParseDisplayName(FullFileName, nullptr, wil::out_param(pidlFull), 0, nullptr);
+	hr = SHParseDisplayName(fullFileName, nullptr, wil::out_param(pidlFull), 0, nullptr);
 
 	/* It is possible that by the time a file is registered here,
 	it will have already been renamed. In this the following
@@ -258,8 +253,8 @@ void ShellBrowser::OnFileActionAdded(const TCHAR *szFileName)
 		that is was simply renamed shortly after been created.
 		Record the filename temporarily (so that it can later
 		be added). */
-		StringCchCopy(Added.szFileName,SIZEOF_ARRAY(Added.szFileName),szFileName);
-		m_FilesAdded.push_back(Added);
+		StringCchCopy(added.szFileName,SIZEOF_ARRAY(added.szFileName),szFileName);
+		m_FilesAdded.push_back(added);
 	}
 }
 
@@ -298,7 +293,7 @@ void ShellBrowser::ModifyItemInternal(const TCHAR *FileName)
 	HANDLE			hFirstFile;
 	ULARGE_INTEGER	ulFileSize;
 	LVITEM			lvItem;
-	TCHAR			FullFileName[MAX_PATH];
+	TCHAR			fullFileName[MAX_PATH];
 	BOOL			bFolder;
 	BOOL			res;
 	int				iItem;
@@ -393,10 +388,10 @@ void ShellBrowser::ModifyItemInternal(const TCHAR *FileName)
 			m_ulFileSelectionSize.QuadPart -= ulFileSize.QuadPart;
 		}
 
-		StringCchCopy(FullFileName,SIZEOF_ARRAY(FullFileName),m_CurDir);
-		PathAppend(FullFileName,FileName);
+		StringCchCopy(fullFileName,SIZEOF_ARRAY(fullFileName),m_CurDir);
+		PathAppend(fullFileName,FileName);
 
-		hFirstFile = FindFirstFile(FullFileName,&m_itemInfoMap.at(iItemInternal).wfd);
+		hFirstFile = FindFirstFile(fullFileName,&m_itemInfoMap.at(iItemInternal).wfd);
 
 		if(hFirstFile != INVALID_HANDLE_VALUE)
 		{
@@ -424,7 +419,7 @@ void ShellBrowser::ModifyItemInternal(const TCHAR *FileName)
 
 			if(m_folderSettings.viewMode == +ViewMode::Details)
 			{
-				if(m_pActiveColumns != NULL)
+				if(m_pActiveColumns != nullptr)
 				{
 					for(auto itrColumn = m_pActiveColumns->begin();itrColumn != m_pActiveColumns->end();itrColumn++)
 					{
@@ -509,8 +504,8 @@ ALL changes to an items name/internal properties/icon/overlay icon
 should go through a central function. */
 void ShellBrowser::RenameItem(int iItemInternal,const TCHAR *szNewFileName)
 {
-	IShellFolder	*pShellFolder = NULL;
-	PCITEMID_CHILD	pidlRelative = NULL;
+	IShellFolder	*pShellFolder = nullptr;
+	PCITEMID_CHILD	pidlRelative = nullptr;
 	SHFILEINFO		shfi;
 	LVFINDINFO		lvfi;
 	TCHAR			szDisplayName[MAX_PATH];

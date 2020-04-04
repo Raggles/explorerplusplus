@@ -42,16 +42,16 @@ class SetFileAttributesDialog : public BaseDialog
 public:
 
 	SetFileAttributesDialog(HINSTANCE hInstance, HWND hParent,
-		std::list<NSetFileAttributesDialogExternal::SetFileAttributesInfo_t> sfaiList);
+		const std::list<NSetFileAttributesDialogExternal::SetFileAttributesInfo_t> &sfaiList);
 
 protected:
 
-	INT_PTR	OnInitDialog();
-	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
-	INT_PTR	OnNotify(NMHDR *pnmhdr);
-	INT_PTR	OnClose();
+	INT_PTR	OnInitDialog() override;
+	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam) override;
+	INT_PTR	OnNotify(NMHDR *pnmhdr) override;
+	INT_PTR	OnClose() override;
 
-	void	SaveState();
+	void	SaveState() override;
 
 private:
 
@@ -67,20 +67,20 @@ private:
 		BOOL bReversed;
 	} Attribute_t;
 
-	enum DateTimeType_t
+	enum class DateTimeType
 	{
-		DATE_TIME_MODIFIED,
-		DATE_TIME_CREATED,
-		DATE_TIME_ACCESSED
+		Modified,
+		Created,
+		Accessed
 	};
 
-	void	InitializeAttributesStructure(void);
+	void	InitializeAttributesStructure();
 
 	void	ResetButtonState(HWND hwnd,BOOL bReset);
 	void	SetAttributeCheckState(HWND hwnd,int nAttributes,int nSelected);
 
 	void	InitializeDateFields();
-	void	OnDateReset(DateTimeType_t DateTimeType);
+	void	OnDateReset(DateTimeType dateTimeType);
 	void	OnOk();
 	void	OnCancel();
 

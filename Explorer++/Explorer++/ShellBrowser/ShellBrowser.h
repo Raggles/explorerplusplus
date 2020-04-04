@@ -7,24 +7,20 @@
 #include "ColumnDataRetrieval.h"
 #include "Columns.h"
 #include "FolderSettings.h"
-#include "NavigationController.h"
 #include "NavigatorInterface.h"
 #include "SignalWrapper.h"
 #include "SortModes.h"
 #include "TabNavigationInterface.h"
 #include "ViewModes.h"
 #include "../Helper/DropHandler.h"
-#include "../Helper/Helper.h"
-#include "../Helper/IconFetcher.h"
 #include "../Helper/Macros.h"
 #include "../Helper/ShellHelper.h"
-#include "../Helper/StringHelper.h"
 #include "../Helper/WindowSubclassWrapper.h"
 #include "../ThirdParty/CTPL/cpl_stl.h"
-#include <boost/optional.hpp>
 #include <wil/resource.h>
 #include <future>
 #include <list>
+#include <optional>
 #include <unordered_map>
 
 #define WM_USER_UPDATEWINDOWS		(WM_APP + 17)
@@ -32,6 +28,15 @@
 #define WM_USER_STARTEDBROWSING		(WM_APP + 55)
 #define WM_USER_NEWITEMINSERTED		(WM_APP + 200)
 #define WM_USER_DIRECTORYMODIFIED	(WM_APP + 204)
+
+struct BasicItemInfo_t;
+class CachedIcons;
+struct Config;
+class IconFetcher;
+class IconResourceLoader;
+struct PreservedFolderState;
+struct PreservedHistoryEntry;
+class ShellNavigationController;
 
 typedef struct
 {
@@ -49,71 +54,69 @@ typedef struct
 	int nItems;
 } TypeGroup_t;
 
-struct BasicItemInfo_t;
-class CachedIcons;
-struct Config;
-struct PreservedFolderState;
-
 class ShellBrowser : public IDropTarget, public IDropFilesCallback, public NavigatorInterface
 {
 public:
 
 	static ShellBrowser *CreateNew(int id, HINSTANCE resourceInstance, HWND hOwner,
-		CachedIcons *cachedIcons, const Config *config, TabNavigationInterface *tabNavigation,
-		const FolderSettings &folderSettings, boost::optional<FolderColumns> initialColumns);
+		CachedIcons *cachedIcons, IconResourceLoader *iconResourceLoader, const Config *config,
+		TabNavigationInterface *tabNavigation, const FolderSettings &folderSettings,
+		std::optional<FolderColumns> initialColumns);
 
 	static ShellBrowser *CreateFromPreserved(int id, HINSTANCE resourceInstance, HWND hOwner,
-		CachedIcons *cachedIcons, const Config *config, TabNavigationInterface *tabNavigation,
+		CachedIcons *cachedIcons, IconResourceLoader *iconResourceLoader, const Config *config,
+		TabNavigationInterface *tabNavigation,
 		const std::vector<std::unique_ptr<PreservedHistoryEntry>> &history, int currentEntry,
 		const PreservedFolderState &preservedFolderState);
 
 	/* IUnknown methods. */
-	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject);
-	ULONG __stdcall		AddRef(void);
-	ULONG __stdcall		Release(void);
+	HRESULT __stdcall	QueryInterface(REFIID iid,void **ppvObject) override;
+	ULONG __stdcall		AddRef() override;
+	ULONG __stdcall		Release() override;
 
 	HWND				GetListView() const;
 	FolderSettings		GetFolderSettings() const;
 
-	NavigationController	*GetNavigationController() const;
+	ShellNavigationController	*GetNavigationController() const;
 	boost::signals2::connection	AddNavigationCompletedObserver(const NavigationCompletedSignal::slot_type &observer,
-		boost::signals2::connect_position position = boost::signals2::at_back);
+		boost::signals2::connect_position position = boost::signals2::at_back) override;
 
 	/* Drag and Drop. */
 	void				DragStarted(int iFirstItem,POINT *ptCursor);
-	void				DragStopped(void);
-	HRESULT _stdcall	DragEnter(IDataObject *pDataObject,DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
-	HRESULT _stdcall	DragOver(DWORD grfKeyState,POINTL pt,DWORD *pdwEffect);
-	HRESULT _stdcall	DragLeave(void);
-	HRESULT _stdcall	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect);
+	void				DragStopped();
+	HRESULT _stdcall	DragEnter(IDataObject *pDataObject,DWORD grfKeyState,POINTL pt,DWORD *pdwEffect) override;
+	HRESULT _stdcall	DragOver(DWORD grfKeyState,POINTL pt,DWORD *pdwEffect) override;
+	HRESULT _stdcall	DragLeave() override;
+	HRESULT _stdcall	Drop(IDataObject *pDataObject,DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect) override;
 
 	/* Get/Set current state. */
 	unique_pidl_absolute	GetDirectoryIdl() const;
 	std::wstring		GetDirectory() const;
-	BOOL				GetAutoArrange(void) const;
+	BOOL				GetAutoArrange() const;
 	void				SetAutoArrange(BOOL autoArrange);
 	ViewMode			GetViewMode() const;
 	void				SetViewMode(ViewMode viewMode);
+	void				CycleViewMode(bool cycleForward);
 	SortMode			GetSortMode() const;
 	void				SetSortMode(SortMode sortMode);
 	void				SortFolder(SortMode sortMode);
-	BOOL				GetSortAscending(void) const;
+	BOOL				GetSortAscending() const;
 	BOOL				SetSortAscending(BOOL bAscending);
-	BOOL				GetShowHidden(void) const;
+	BOOL				GetShowHidden() const;
 	BOOL				SetShowHidden(BOOL bShowHidden);
-	int					GetNumItems(void) const;
-	int					GetNumSelectedFiles(void) const;
-	int					GetNumSelectedFolders(void) const;
-	int					GetNumSelected(void) const;
+	int					GetNumItems() const;
+	int					GetNumSelectedFiles() const;
+	int					GetNumSelectedFolders() const;
+	int					GetNumSelected() const;
 
 	/* ID. */
 	int					GetId() const;
 
 	/* Directory modification support. */
 	void				FilesModified(DWORD Action, const TCHAR *FileName, int EventId, int iFolderIndex);
-	void				DirectoryAltered(void);
+	void				DirectoryAltered();
 	void				SetDirMonitorId(int iDirMonitorId);
-	int					GetDirMonitorId(void) const;
+	int					GetDirMonitorId() const;
 	int					GetUniqueFolderId() const;
 
 	/* Item information. */
@@ -135,10 +138,10 @@ public:
 	/* Filtering. */
 	std::wstring		GetFilter() const;
 	void				SetFilter(std::wstring_view filter);
-	BOOL				GetFilterStatus(void) const;
+	BOOL				GetFilterStatus() const;
 	void				SetFilterStatus(BOOL bFilter);
-	BOOL				GetFilterCaseSensitive(void) const;
-	void				SetFilterCaseSensitive(BOOL bCaseSensitive);
+	BOOL				GetFilterCaseSensitive() const;
+	void				SetFilterCaseSensitive(BOOL filterCaseSensitive);
 
 	void				SetFileAttributesForSelection();
 
@@ -147,17 +150,17 @@ public:
 	int					LocateFileItemIndex(const TCHAR *szFileName) const;
 	BOOL				DeghostItem(int iItem);
 	BOOL				GhostItem(int iItem);
-	BOOL				InVirtualFolder(void) const;
-	BOOL				CanCreate(void) const;
+	BOOL				InVirtualFolder() const;
+	BOOL				CanCreate() const;
 
-	BOOL				GetShowInGroups(void) const;
+	BOOL				GetShowInGroups() const;
 	void				SetShowInGroups(BOOL bShowInGroups);
 	void				SetShowInGroupsFlag(BOOL bShowInGroups);
 
 	int CALLBACK		SortTemporary(LPARAM lParam1,LPARAM lParam2);
 
 	std::vector<SortMode>	GetAvailableSortModes() const;
-	size_t				GetNumActiveColumns(void) const;
+	size_t				GetNumActiveColumns() const;
 	void				ImportAllColumns(const FolderColumns &folderColumns);
 	FolderColumns		ExportAllColumns();
 	void				QueueRename(PCIDLIST_ABSOLUTE pidlItem);
@@ -168,6 +171,7 @@ public:
 
 	// Signals
 	SignalWrapper<ShellBrowser, void()> listViewSelectionChanged;
+	SignalWrapper<ShellBrowser, void()> columnsChanged;
 
 private:
 
@@ -276,12 +280,14 @@ private:
 	static const int THUMBNAIL_ITEM_HEIGHT = 120;
 
 	ShellBrowser(int id, HINSTANCE resourceInstance, HWND hOwner, CachedIcons *cachedIcons,
-		const Config *config, TabNavigationInterface *tabNavigation,
+		IconResourceLoader *iconResourceLoader, const Config *config,
+		TabNavigationInterface *tabNavigation,
 		const std::vector<std::unique_ptr<PreservedHistoryEntry>> &history, int currentEntry,
 		const PreservedFolderState &preservedFolderState);
 	ShellBrowser(int id, HINSTANCE resourceInstance, HWND hOwner, CachedIcons *cachedIcons,
-		const Config *config, TabNavigationInterface *tabNavigation, const FolderSettings &folderSettings,
-		boost::optional<FolderColumns> initialColumns);
+		IconResourceLoader *iconResourceLoader, const Config *config,
+		TabNavigationInterface *tabNavigation, const FolderSettings &folderSettings,
+		std::optional<FolderColumns> initialColumns);
 	~ShellBrowser();
 
 	HWND				SetUpListView(HWND parent);
@@ -291,7 +297,7 @@ private:
 	void				VerifySortMode();
 
 	/* NavigatorInterface methods. */
-	HRESULT				BrowseFolder(PCIDLIST_ABSOLUTE pidlDirectory, bool addHistoryEntry = true);
+	HRESULT				BrowseFolder(PCIDLIST_ABSOLUTE pidlDirectory, bool addHistoryEntry = true) override;
 
 	/* Browsing support. */
 	HRESULT				EnumerateFolder(PCIDLIST_ABSOLUTE pidlDirectory);
@@ -324,13 +330,17 @@ private:
 	void				OnListViewGetDisplayInfo(LPARAM lParam);
 	LRESULT				OnListViewGetInfoTip(NMLVGETINFOTIP *getInfoTip);
 	void				QueueInfoTipTask(int internalIndex, const std::wstring &existingInfoTip);
-	static boost::optional<InfoTipResult>	GetInfoTipAsync(HWND listView, int infoTipResultId, int internalIndex, const BasicItemInfo_t &basicItemInfo, const Config &config, HINSTANCE instance, bool virtualFolder);
+	static std::optional<InfoTipResult>	GetInfoTipAsync(HWND listView, int infoTipResultId, int internalIndex, const BasicItemInfo_t &basicItemInfo, const Config &config, HINSTANCE instance, bool virtualFolder);
 	void				ProcessInfoTipResult(int infoTipResultId);
 	void				OnListViewItemChanged(const NMLISTVIEW *changeData);
-	void				UpdateFileSelectionInfo(int internalIndex, BOOL Selected);
+	void				UpdateFileSelectionInfo(int internalIndex, BOOL selected);
 	void				OnListViewKeyDown(const NMLVKEYDOWN *lvKeyDown);
+
+	// Listview header context menu
 	void				OnListViewHeaderRightClick(const POINTS &cursorPos);
 	void				OnListViewHeaderMenuItemSelected(int menuItemId, const std::unordered_map<int, UINT> &menuItemMappings);
+	void				OnShowMoreColumnsSelected();
+	void				OnColumnMenuItemSelected(int menuItemId, const std::unordered_map<int, UINT> &menuItemMappings);
 
 	ItemInfo_t			&GetItemByIndex(int index);
 	int					GetItemInternalIndex(int item) const;
@@ -343,14 +353,14 @@ private:
 	/* Listview column support. */
 	void				PlaceColumns();
 	void				QueueColumnTask(int itemInternalIndex, int columnIndex);
-	static ColumnResult_t	GetColumnTextAsync(HWND listView, int columnResultId, unsigned int ColumnID, int InternalIndex, const BasicItemInfo_t &basicItemInfo, const GlobalFolderSettings &globalFolderSettings);
-	void				InsertColumn(unsigned int ColumnId,int iColumndIndex,int iWidth);
+	static ColumnResult_t	GetColumnTextAsync(HWND listView, int columnResultId, unsigned int columnID, int internalIndex, const BasicItemInfo_t &basicItemInfo, const GlobalFolderSettings &globalFolderSettings);
+	void				InsertColumn(unsigned int columnId,int iColumnIndex,int iWidth);
 	void				SetActiveColumnSet();
 	void				GetColumnInternal(unsigned int id,Column_t *pci) const;
 	void				SaveColumnWidths();
 	void				ProcessColumnResult(int columnResultId);
-	boost::optional<int>	GetColumnIndexById(unsigned int id) const;
-	boost::optional<unsigned int>	GetColumnIdByIndex(int index) const;
+	std::optional<int>	GetColumnIndexById(unsigned int id) const;
+	std::optional<unsigned int>	GetColumnIdByIndex(int index) const;
 
 	/* Device change support. */
 	void				UpdateDriveIcon(const TCHAR *szDrive);
@@ -368,10 +378,10 @@ private:
 
 	/* Filtering support. */
 	BOOL				IsFilenameFiltered(const TCHAR *FileName) const;
-	void				RemoveFilteredItems(void);
+	void				RemoveFilteredItems();
 	void				RemoveFilteredItem(int iItem,int iItemInternal);
-	void				UpdateFiltering(void);
-	void				UnfilterAllItems(void);
+	void				UpdateFiltering();
+	void				UnfilterAllItems();
 
 	/* Listview group support (real files). */
 	static INT CALLBACK	GroupNameComparisonStub(INT Group1_ID, INT Group2_ID, void *pvData);
@@ -399,18 +409,18 @@ private:
 	/* Other grouping support. */
 	int					CheckGroup(std::wstring_view groupHeader, PFNLVGROUPCOMPARE groupComparison);
 	void				InsertItemIntoGroup(int iItem,int iGroupId);
-	void				MoveItemsIntoGroups(void);
+	void				MoveItemsIntoGroups();
 
 	/* Listview icons. */
 	void				ProcessIconResult(int internalIndex, int iconIndex);
-	boost::optional<int>	GetCachedIconIndex(const ItemInfo_t &itemInfo);
+	std::optional<int>	GetCachedIconIndex(const ItemInfo_t &itemInfo);
 
 	/* Thumbnails view. */
 	void				QueueThumbnailTask(int internalIndex);
-	static boost::optional<ThumbnailResult_t>	FindThumbnailAsync(HWND listView, int thumbnailResultId, int internalIndex, const BasicItemInfo_t &basicItemInfo);
+	static std::optional<ThumbnailResult_t>	FindThumbnailAsync(HWND listView, int thumbnailResultId, int internalIndex, const BasicItemInfo_t &basicItemInfo);
 	void				ProcessThumbnailResult(int thumbnailResultId);
-	void				SetupThumbnailsView(void);
-	void				RemoveThumbnailsView(void);
+	void				SetupThumbnailsView();
+	void				RemoveThumbnailsView();
 	int					GetIconThumbnail(int iInternalIndex) const;
 	int					GetExtractedThumbnail(HBITMAP hThumbnailBitmap) const;
 	int					GetThumbnailInternal(int iType, int iInternalIndex, HBITMAP hThumbnailBitmap) const;
@@ -424,18 +434,18 @@ private:
 	void				SetTileViewItemInfo(int iItem,int iItemInternal);
 
 	/* Drag and Drop support. */
-	HRESULT				InitializeDragDropHelpers(void);
+	HRESULT				InitializeDragDropHelpers();
 	DWORD				CheckItemLocations(IDataObject *pDataObject,int iDroppedItem);
 	void				HandleDragSelection(const POINT *ppt);
 	void				RepositionLocalFiles(const POINT *ppt);
 	void				ScrollListViewFromCursor(HWND hListView, const POINT *CursorPos);
-	void				PositionDroppedItems(void);
-	void				OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt);
+	void				PositionDroppedItems();
+	void				OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt) override;
 
 	/* Miscellaneous. */
 	BOOL				CompareVirtualFolders(UINT uFolderCSIDL) const;
 	int					LocateFileItemInternalIndex(const TCHAR *szFileName) const;
-	boost::optional<int>	LocateItemByInternalIndex(int internalIndex) const;
+	std::optional<int>	LocateItemByInternalIndex(int internalIndex) const;
 	void				ApplyHeaderSortArrow();
 	void				QueryFullItemNameInternal(int iItemInternal,TCHAR *szFullFileName,UINT cchMax) const;
 
@@ -446,7 +456,7 @@ private:
 	HWND				m_hOwner;
 
 	NavigationCompletedSignal	m_navigationCompletedSignal;
-	std::unique_ptr<NavigationController>	m_navigationController;
+	std::unique_ptr<ShellNavigationController>	m_navigationController;
 
 	TabNavigationInterface	*m_tabNavigation;
 
@@ -474,12 +484,14 @@ private:
 	std::unique_ptr<IconFetcher> m_iconFetcher;
 	CachedIcons			*m_cachedIcons;
 
+	IconResourceLoader	*m_iconResourceLoader;
+
 	ctpl::thread_pool	m_thumbnailThreadPool;
-	std::unordered_map<int, std::future<boost::optional<ThumbnailResult_t>>> m_thumbnailResults;
+	std::unordered_map<int, std::future<std::optional<ThumbnailResult_t>>> m_thumbnailResults;
 	int					m_thumbnailResultIDCounter;
 
 	ctpl::thread_pool	m_infoTipsThreadPool;
-	std::unordered_map<int, std::future<boost::optional<InfoTipResult>>> m_infoTipResults;
+	std::unordered_map<int, std::future<std::optional<InfoTipResult>>> m_infoTipResults;
 	int					m_infoTipResultIDCounter;
 
 	/* Cached folder size data. */

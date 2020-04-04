@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include "CoreInterface.h"
 #include "../Helper/BaseWindow.h"
+
+__interface IExplorerplusplus;
 
 class ListViewEdit : BaseWindow
 {
@@ -15,17 +16,17 @@ public:
 
 protected:
 
-	void				OnEMSetSel(WPARAM &wParam,LPARAM &lParam);
+	void				OnEMSetSel(WPARAM &wParam,LPARAM &lParam) override;
 
-	INT_PTR				OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam);
+	INT_PTR				OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam) override;
 
 private:
 
-	enum RenameStage_t
+	enum class RenameStage
 	{
-		RENAME_FILENAME,
-		RENAME_EXTENSION,
-		RENAME_ENTIRE
+		Filename,
+		Extension,
+		Entire
 	};
 
 	ListViewEdit(HWND hwnd,int ItemIndex,IExplorerplusplus *pexpp);
@@ -35,6 +36,6 @@ private:
 	IExplorerplusplus	*m_pexpp;
 
 	int					m_ItemIndex;
-	RenameStage_t		m_RenameStage;
+	RenameStage		m_RenameStage;
 	bool				m_BeginRename;
 };

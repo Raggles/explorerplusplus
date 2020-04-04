@@ -16,20 +16,18 @@
 #include "stdafx.h"
 #include "Explorer++.h"
 #include "ApplicationToolbar.h"
-#include "BookmarkXmlStorage.h"
-#include "ColorRuleHelper.h"
+#include "Bookmarks/BookmarkXmlStorage.h"
 #include "Config.h"
+#include "DisplayWindow/DisplayWindow.h"
 #include "Explorer++_internal.h"
 #include "MainToolbar.h"
 #include "ShellBrowser/Columns.h"
-#include "ToolbarButtons.h"
-#include "../DisplayWindow/DisplayWindow.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "TabContainer.h"
 #include "../Helper/Macros.h"
 #include "../Helper/ProcessHelper.h"
 #include "../Helper/XMLSettings.h"
 #include <boost/range/adaptor/map.hpp>
-#include <MsXml2.h>
-#include <objbase.h>
 
 #define COLUMN_TYPE_GENERIC			0
 #define COLUMN_TYPE_MYCOMPUTER		1
@@ -51,7 +49,9 @@ will need to be changed correspondingly. */
 #define HASH_DISPLAYFONT			362757714
 #define HASH_DISPLAYSURROUNDCOLOR	1807564604
 #define HASH_DISPLAYTEXTCOLOR		4212809823
+#define HASH_DISPLAYWINDOWWIDTH		3332824435
 #define HASH_DISPLAYWINDOWHEIGHT	2017415020
+#define HASH_DISPLAYWINDOWVERTICAL	2262072301
 #define HASH_LANGUAGE				3526403497
 #define HASH_LASTSELECTEDTAB		1712438393
 #define HASH_NEXTTOCURRENT			743165450
@@ -143,13 +143,13 @@ BOOL LoadWindowPositionFromXML(WINDOWPLACEMENT *pwndpl)
 {
 	IXMLDOMDocument *pXMLDom;
 	TCHAR szConfigFile[MAX_PATH];
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pChildNode = NULL;
+	IXMLDOMNodeList		*pNodes = nullptr;
+	IXMLDOMNode			*pNode = nullptr;
+	IXMLDOMNamedNodeMap	*am = nullptr;
+	IXMLDOMNode			*pChildNode = nullptr;
 	BSTR						bstrName;
 	BSTR						bstrValue;
-	BSTR						bstr = NULL;
+	BSTR						bstr = nullptr;
 	VARIANT_BOOL				status;
 	VARIANT						var;
 	HRESULT						hr;
@@ -231,7 +231,7 @@ BOOL LoadWindowPositionFromXML(WINDOWPLACEMENT *pwndpl)
 			}
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -244,13 +244,23 @@ clean:
 	return TRUE;
 }
 
-BOOL LoadAllowMultipleInstancesFromXML(void)
+BOOL LoadAllowMultipleInstancesFromXML()
 {
 	IXMLDOMDocument *pXMLDom;
 	TCHAR szConfigFile[MAX_PATH];
 	VARIANT_BOOL status;
 	VARIANT var;
 	BOOL bAllowMultipleInstances = TRUE;
+	BSTR bstr = nullptr;
+	IXMLDOMNodeList *pNodes = nullptr;
+	IXMLDOMNode *pNode = nullptr;
+	IXMLDOMNamedNodeMap *am = nullptr;
+	IXMLDOMNode *pNodeAttribute = nullptr;
+	BSTR bstrName;
+	BSTR bstrValue;
+	HRESULT hr;
+	BOOL bFound = FALSE;
+	long length;
 
 	pXMLDom = NXMLSettings::DomFromCOM();
 
@@ -266,17 +276,6 @@ BOOL LoadAllowMultipleInstancesFromXML(void)
 
 	if(status != VARIANT_TRUE)
 		goto clean;
-
-	BSTR						bstr = NULL;
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pNodeAttribute = NULL;
-	BSTR						bstrName;
-	BSTR						bstrValue;
-	HRESULT						hr;
-	BOOL						bFound = FALSE;
-	long						length;
 
 	bstr = SysAllocString(L"//Settings/*");
 	pXMLDom->selectNodes(bstr, &pNodes);
@@ -318,12 +317,12 @@ BOOL LoadAllowMultipleInstancesFromXML(void)
 					}
 
 					pNodeAttribute->Release();
-					pNodeAttribute = NULL;
+					pNodeAttribute = nullptr;
 				}
 			}
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -335,17 +334,17 @@ clean:
 
 void Explorerplusplus::LoadGenericSettingsFromXML(IXMLDOMDocument *pXMLDom)
 {
-	BSTR						bstr = NULL;
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pNodeAttribute = NULL;
+	BSTR						bstr = nullptr;
+	IXMLDOMNodeList		*pNodes = nullptr;
+	IXMLDOMNode			*pNode = nullptr;
+	IXMLDOMNamedNodeMap	*am = nullptr;
+	IXMLDOMNode			*pNodeAttribute = nullptr;
 	BSTR						bstrName;
 	BSTR						bstrValue;
 	HRESULT						hr;
 	long						length;
 
-	if(pXMLDom == NULL)
+	if(pXMLDom == nullptr)
 		goto clean;
 
 	bstr = SysAllocString(L"//Settings/*");
@@ -382,12 +381,12 @@ void Explorerplusplus::LoadGenericSettingsFromXML(IXMLDOMDocument *pXMLDom)
 					MapAttributeToValue(pNode,bstrName,bstrValue);
 
 					pNodeAttribute->Release();
-					pNodeAttribute = NULL;
+					pNodeAttribute = nullptr;
 				}
 			}
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -398,9 +397,9 @@ clean:
 void Explorerplusplus::SaveGenericSettingsToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement					*pe = NULL;
-	IXMLDOMElement					*pParentNode = NULL;
-	BSTR									bstr = NULL;
+	IXMLDOMElement					*pe = nullptr;
+	IXMLDOMElement					*pParentNode = nullptr;
+	BSTR									bstr = nullptr;
 	BSTR									bstr_wsnt= SysAllocString(L"\n\t");
 	BSTR									bstr_wsntt = SysAllocString(L"\n\t\t");
 	WCHAR									szValue[32];
@@ -408,7 +407,7 @@ IXMLDOMElement *pRoot)
 	bstr = SysAllocString(L"Settings");
 	pXMLDom->createElement(bstr,&pe);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("AllowMultipleInstances"),NXMLSettings::EncodeBoolValue(m_config->allowMultipleInstances));
@@ -429,57 +428,63 @@ IXMLDOMElement *pRoot)
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("DisableFolderSizesNetworkRemovable"),
 		NXMLSettings::EncodeBoolValue(m_config->globalFolderSettings.disableFolderSizesNetworkRemovable));
 
-	COLORREF CentreColor;
+	COLORREF centreColor;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::CreateElementNode(pXMLDom,&pParentNode,pe,_T("Setting"),_T("DisplayCentreColor"));
-	CentreColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETCENTRECOLOR,0,0);
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(CentreColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(CentreColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(CentreColor)));
+	centreColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETCENTRECOLOR,0,0);
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(centreColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(centreColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(centreColor)));
 	pParentNode->Release();
-	pParentNode = NULL;
+	pParentNode = nullptr;
 
 	HFONT hFont;
-	LOGFONT FontInfo;
+	LOGFONT fontInfo;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::CreateElementNode(pXMLDom,&pParentNode,pe,_T("Setting"),_T("DisplayFont"));
 	SendMessage(m_hDisplayWindow,DWM_GETFONT,(WPARAM)&hFont,0);
-	GetObject(hFont,sizeof(LOGFONT),&FontInfo);
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Height"),NXMLSettings::EncodeIntValue(FontInfo.lfHeight));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Width"),NXMLSettings::EncodeIntValue(FontInfo.lfWidth));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Weight"),NXMLSettings::EncodeIntValue(FontInfo.lfWeight));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Italic"),NXMLSettings::EncodeBoolValue(FontInfo.lfItalic));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Underline"),NXMLSettings::EncodeBoolValue(FontInfo.lfUnderline));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Strikeout"),NXMLSettings::EncodeBoolValue(FontInfo.lfStrikeOut));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Font"),FontInfo.lfFaceName);
+	GetObject(hFont,sizeof(LOGFONT),&fontInfo);
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Height"),NXMLSettings::EncodeIntValue(fontInfo.lfHeight));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Width"),NXMLSettings::EncodeIntValue(fontInfo.lfWidth));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Weight"),NXMLSettings::EncodeIntValue(fontInfo.lfWeight));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Italic"),NXMLSettings::EncodeBoolValue(fontInfo.lfItalic));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Underline"),NXMLSettings::EncodeBoolValue(fontInfo.lfUnderline));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Strikeout"),NXMLSettings::EncodeBoolValue(fontInfo.lfStrikeOut));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("Font"),fontInfo.lfFaceName);
 
-	COLORREF SurroundColor;
+	COLORREF surroundColor;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::CreateElementNode(pXMLDom,&pParentNode,pe,_T("Setting"),_T("DisplaySurroundColor"));
-	SurroundColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETSURROUNDCOLOR,0,0);
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(SurroundColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(SurroundColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(SurroundColor)));
+	surroundColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETSURROUNDCOLOR,0,0);
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(surroundColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(surroundColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(surroundColor)));
 	pParentNode->Release();
-	pParentNode = NULL;
+	pParentNode = nullptr;
 
-	COLORREF TextColor;
+	COLORREF textColor;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::CreateElementNode(pXMLDom,&pParentNode,pe,_T("Setting"),_T("DisplayTextColor"));
-	TextColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETTEXTCOLOR,0,0);
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(TextColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(TextColor)));
-	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(TextColor)));
+	textColor = (COLORREF)SendMessage(m_hDisplayWindow,DWM_GETTEXTCOLOR,0,0);
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("r"),NXMLSettings::EncodeIntValue(GetRValue(textColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("g"),NXMLSettings::EncodeIntValue(GetGValue(textColor)));
+	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("b"),NXMLSettings::EncodeIntValue(GetBValue(textColor)));
 	pParentNode->Release();
-	pParentNode = NULL;
+	pParentNode = nullptr;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
+	_itow_s(m_config->displayWindowWidth,szValue,SIZEOF_ARRAY(szValue),10);
+	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("DisplayWindowWidth"),szValue);
+
 	_itow_s(m_config->displayWindowHeight,szValue,SIZEOF_ARRAY(szValue),10);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("DisplayWindowHeight"),szValue);
+
+	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
+	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("DisplayWindowVertical"),NXMLSettings::EncodeBoolValue(m_config->displayWindowVertical));
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("DoubleClickTabClose"),NXMLSettings::EncodeBoolValue(m_config->doubleClickTabClose));
@@ -496,7 +501,7 @@ IXMLDOMElement *pRoot)
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("HideSystemFilesGlobal"),NXMLSettings::EncodeBoolValue(m_config->globalFolderSettings.hideSystemFiles));
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
-	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("InfoTipType"),NXMLSettings::EncodeIntValue(m_config->infoTipType));
+	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("InfoTipType"),NXMLSettings::EncodeIntValue(static_cast<int>(m_config->infoTipType)));
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("InsertSorted"),NXMLSettings::EncodeBoolValue(m_config->globalFolderSettings.insertSorted));
 
@@ -576,11 +581,8 @@ IXMLDOMElement *pRoot)
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("SizeDisplayFormat"),NXMLSettings::EncodeIntValue(m_config->globalFolderSettings.sizeDisplayFormat));
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("SortAscendingGlobal"),NXMLSettings::EncodeBoolValue(m_config->defaultFolderSettings.sortAscending));
-
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
-	_itow_s(m_config->startupMode,szValue,SIZEOF_ARRAY(szValue),10);
-	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("StartupMode"),szValue);
-
+	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("StartupMode"),NXMLSettings::EncodeIntValue(static_cast<int>(m_config->startupMode)));
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("SynchronizeTreeview"),NXMLSettings::EncodeBoolValue(m_config->synchronizeTreeview));
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
@@ -597,7 +599,7 @@ IXMLDOMElement *pRoot)
 	MainToolbarPersistentSettings::GetInstance().SaveXMLSettings(pXMLDom, pParentNode);
 
 	pParentNode->Release();
-	pParentNode = NULL;
+	pParentNode = nullptr;
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pe);
 	NXMLSettings::WriteStandardSetting(pXMLDom,pe,_T("Setting"),_T("TreeViewDelayEnabled"),NXMLSettings::EncodeBoolValue(m_config->treeViewDelayEnabled));
@@ -614,22 +616,22 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pe,pRoot);
 	pe->Release();
-	pe = NULL;
+	pe = nullptr;
 
 	SaveWindowPositionToXML(pXMLDom,pRoot);
 }
 
 int Explorerplusplus::LoadTabSettingsFromXML(IXMLDOMDocument *pXMLDom)
 {
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	IXMLDOMNode			*pColumnsNode = NULL;
-	IXMLDOMNode			*pColumnNode = NULL;
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pChildNode = NULL;
+	IXMLDOMNodeList		*pNodes = nullptr;
+	IXMLDOMNode			*pNode = nullptr;
+	IXMLDOMNode			*pColumnsNode = nullptr;
+	IXMLDOMNode			*pColumnNode = nullptr;
+	IXMLDOMNamedNodeMap	*am = nullptr;
+	IXMLDOMNode			*pChildNode = nullptr;
 	BSTR				bstrName;
 	BSTR				bstrValue;
-	BSTR				bstr = NULL;
+	BSTR				bstr = nullptr;
 	HRESULT				hr;
 	TCHAR				szDirectory[MAX_PATH];
 	FolderColumns		initialColumns;
@@ -638,7 +640,7 @@ int Explorerplusplus::LoadTabSettingsFromXML(IXMLDOMDocument *pXMLDom)
 	long				j = 0;
 	int					nTabsCreated = 0;
 
-	if(pXMLDom == NULL)
+	if(pXMLDom == nullptr)
 		goto clean;
 
 	bstr = SysAllocString(L"//Tabs/*");
@@ -710,41 +712,41 @@ int Explorerplusplus::LoadTabSettingsFromXML(IXMLDOMDocument *pXMLDom)
 							{
 								pColumnNode->get_nextSibling(&pColumnNode);
 
-								std::vector<Column_t> Column;
+								std::vector<Column_t> column;
 								int iColumnType;
 
-								while(pColumnNode != NULL)
+								while(pColumnNode != nullptr)
 								{
-									iColumnType = LoadColumnFromXML(pColumnNode,Column);
+									iColumnType = LoadColumnFromXML(pColumnNode,column);
 
 									switch(iColumnType)
 									{
 									case COLUMN_TYPE_GENERIC:
-										initialColumns.realFolderColumns = Column;
+										initialColumns.realFolderColumns = column;
 										break;
 
 									case COLUMN_TYPE_MYCOMPUTER:
-										initialColumns.myComputerColumns = Column;
+										initialColumns.myComputerColumns = column;
 										break;
 
 									case COLUMN_TYPE_CONTROLPANEL:
-										initialColumns.controlPanelColumns = Column;
+										initialColumns.controlPanelColumns = column;
 										break;
 
 									case COLUMN_TYPE_RECYCLEBIN:
-										initialColumns.recycleBinColumns = Column;
+										initialColumns.recycleBinColumns = column;
 										break;
 
 									case COLUMN_TYPE_PRINTERS:
-										initialColumns.printersColumns = Column;
+										initialColumns.printersColumns = column;
 										break;
 
 									case COLUMN_TYPE_NETWORK:
-										initialColumns.networkConnectionsColumns = Column;
+										initialColumns.networkConnectionsColumns = column;
 										break;
 
 									case COLUMN_TYPE_NETWORKPLACES:
-										initialColumns.myNetworkPlacesColumns = Column;
+										initialColumns.myNetworkPlacesColumns = column;
 										break;
 									}
 
@@ -771,7 +773,7 @@ int Explorerplusplus::LoadTabSettingsFromXML(IXMLDOMDocument *pXMLDom)
 				nTabsCreated++;
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -786,8 +788,8 @@ clean:
 void Explorerplusplus::SaveTabSettingsToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement	*pe = NULL;
-	BSTR					bstr = NULL;
+	IXMLDOMElement	*pe = nullptr;
+	BSTR					bstr = nullptr;
 	BSTR					bstr_wsnt= SysAllocString(L"\n\t");
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsnt,pRoot);
@@ -795,7 +797,7 @@ IXMLDOMElement *pRoot)
 	bstr = SysAllocString(L"Tabs");
 	pXMLDom->createElement(bstr,&pe);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	SaveTabSettingsToXMLnternal(pXMLDom,pe);
 
@@ -803,19 +805,19 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pe,pRoot);
 	pe->Release();
-	pe = NULL;
+	pe = nullptr;
 }
 
 void Explorerplusplus::SaveTabSettingsToXMLnternal(IXMLDOMDocument *pXMLDom,IXMLDOMElement *pe)
 {
-	IXMLDOMElement	*pParentNode = NULL;
-	IXMLDOMElement	*pColumnsNode = NULL;
+	IXMLDOMElement	*pParentNode = nullptr;
+	IXMLDOMElement	*pColumnsNode = nullptr;
 	BSTR					bstr_wsntt = SysAllocString(L"\n\t\t");
 	BSTR					bstr_wsnttt = SysAllocString(L"\n\t\t\t");
-	BSTR					bstr = NULL;
+	BSTR					bstr = nullptr;
 	TCHAR					szNodeName[32];
-	UINT					SortMode;
-	UINT					ViewMode;
+	UINT					sortMode;
+	UINT					viewMode;
 	int						tabNum = 0;
 
 	for (auto tabRef : m_tabContainer->GetAllTabsInOrder())
@@ -851,16 +853,16 @@ void Explorerplusplus::SaveTabSettingsToXMLnternal(IXMLDOMDocument *pXMLDom,IXML
 		NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("SortAscending"),
 			NXMLSettings::EncodeBoolValue(tab.GetShellBrowser()->GetSortAscending()));
 
-		SortMode = tab.GetShellBrowser()->GetSortMode();
-		NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("SortMode"),NXMLSettings::EncodeIntValue(SortMode));
+		sortMode = tab.GetShellBrowser()->GetSortMode();
+		NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("SortMode"),NXMLSettings::EncodeIntValue(sortMode));
 
-		ViewMode = tab.GetShellBrowser()->GetViewMode();
-		NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("ViewMode"),NXMLSettings::EncodeIntValue(ViewMode));
+		viewMode = tab.GetShellBrowser()->GetViewMode();
+		NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("ViewMode"),NXMLSettings::EncodeIntValue(viewMode));
 
 		bstr = SysAllocString(L"Columns");
 		pXMLDom->createElement(bstr,&pColumnsNode);
 		SysFreeString(bstr);
-		bstr = NULL;
+		bstr = nullptr;
 
 		auto folderColumns = tab.GetShellBrowser()->ExportAllColumns();
 
@@ -893,12 +895,12 @@ void Explorerplusplus::SaveTabSettingsToXMLnternal(IXMLDOMDocument *pXMLDom,IXML
 
 		NXMLSettings::AppendChildToParent(pColumnsNode,pParentNode);
 		pColumnsNode->Release();
-		pColumnsNode = NULL;
+		pColumnsNode = nullptr;
 
 		NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsntt,pParentNode);
 
 		pParentNode->Release();
-		pParentNode = NULL;
+		pParentNode = nullptr;
 
 		tabNum++;
 	}
@@ -909,9 +911,9 @@ void Explorerplusplus::SaveTabSettingsToXMLnternal(IXMLDOMDocument *pXMLDom,IXML
 
 int Explorerplusplus::LoadColumnFromXML(IXMLDOMNode *pNode, std::vector<Column_t> &outputColumns)
 {
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pAttributeNode = NULL;
-	Column_t					Column;
+	IXMLDOMNamedNodeMap	*am = nullptr;
+	IXMLDOMNode			*pAttributeNode = nullptr;
+	Column_t					column;
 	BSTR						bstrName;
 	BSTR						bstrValue;
 	TCHAR						szWidth[32];
@@ -968,16 +970,16 @@ int Explorerplusplus::LoadColumnFromXML(IXMLDOMNode *pNode, std::vector<Column_t
 
 				if(lstrcmp(bstrName,ColumnData[j].szName) == 0)
 				{
-					Column.id = ColumnData[j].id;
+					column.id = ColumnData[j].id;
 
-					Column.bChecked	= NXMLSettings::DecodeBoolValue(bstrValue);
+					column.bChecked	= NXMLSettings::DecodeBoolValue(bstrValue);
 
-					outputColumns.push_back(Column);
+					outputColumns.push_back(column);
 					break;
 				}
 				else if(lstrcmp(bstrName,szWidth) == 0)
 				{
-					if(outputColumns.size() > 0)
+					if(!outputColumns.empty())
 					{
 						outputColumns.back().iWidth = NXMLSettings::DecodeIntValue(bstrValue);
 					}
@@ -1004,10 +1006,10 @@ IXMLDOMElement *pRoot)
 
 int Explorerplusplus::LoadDefaultColumnsFromXML(IXMLDOMDocument *pXMLDom)
 {
-	IXMLDOMNodeList	*pNodes = NULL;
-	IXMLDOMNode		*pNode = NULL;
-	BSTR			bstr = NULL;
-	std::vector<Column_t>	ColumnSet;
+	IXMLDOMNodeList	*pNodes = nullptr;
+	IXMLDOMNode		*pNode = nullptr;
+	BSTR			bstr = nullptr;
+	std::vector<Column_t>	columnSet;
 	long			length;
 	int				iColumnType;
 
@@ -1031,41 +1033,41 @@ int Explorerplusplus::LoadDefaultColumnsFromXML(IXMLDOMDocument *pXMLDom)
 		{
 			pNodes->get_item(i, &pNode);
 
-			iColumnType = LoadColumnFromXML(pNode,ColumnSet);
+			iColumnType = LoadColumnFromXML(pNode,columnSet);
 
 			switch(iColumnType)
 			{
 			case COLUMN_TYPE_GENERIC:
-				folderColumns.realFolderColumns = ColumnSet;
+				folderColumns.realFolderColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_MYCOMPUTER:
-				folderColumns.myComputerColumns = ColumnSet;
+				folderColumns.myComputerColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_CONTROLPANEL:
-				folderColumns.controlPanelColumns = ColumnSet;
+				folderColumns.controlPanelColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_RECYCLEBIN:
-				folderColumns.recycleBinColumns = ColumnSet;
+				folderColumns.recycleBinColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_PRINTERS:
-				folderColumns.printersColumns = ColumnSet;
+				folderColumns.printersColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_NETWORK:
-				folderColumns.networkConnectionsColumns = ColumnSet;
+				folderColumns.networkConnectionsColumns = columnSet;
 				break;
 
 			case COLUMN_TYPE_NETWORKPLACES:
-				folderColumns.myNetworkPlacesColumns = ColumnSet;
+				folderColumns.myNetworkPlacesColumns = columnSet;
 				break;
 			}
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -1080,14 +1082,14 @@ clean:
 void Explorerplusplus::SaveDefaultColumnsToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement	*pColumnsNode = NULL;
+	IXMLDOMElement	*pColumnsNode = nullptr;
 	BSTR					bstr_wsnt = SysAllocString(L"\n\t");
 	BSTR					bstr;
 
 	bstr = SysAllocString(L"DefaultColumns");
 	pXMLDom->createElement(bstr,&pColumnsNode);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	SaveDefaultColumnsToXMLInternal(pXMLDom,pColumnsNode);
 
@@ -1096,7 +1098,7 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pColumnsNode,pRoot);
 	pColumnsNode->Release();
-	pColumnsNode = NULL;
+	pColumnsNode = nullptr;
 }
 
 void Explorerplusplus::SaveDefaultColumnsToXMLInternal(IXMLDOMDocument *pXMLDom,
@@ -1119,8 +1121,8 @@ void Explorerplusplus::SaveColumnToXML(IXMLDOMDocument *pXMLDom,
 	IXMLDOMElement *pColumnsNode, const std::vector<Column_t> &columns,
 	const TCHAR *szColumnSet, int iIndent)
 {
-	IXMLDOMElement	*pColumnNode = NULL;
-	TCHAR			*pszColumnSaveName = NULL;
+	IXMLDOMElement	*pColumnNode = nullptr;
+	TCHAR			*pszColumnSaveName = nullptr;
 	WCHAR			wszIndent[128];
 	TCHAR			szWidth[32];
 	BSTR			bstr_indent = SysAllocString(L"\n\t\t\t\t");
@@ -1159,14 +1161,14 @@ void Explorerplusplus::SaveColumnToXML(IXMLDOMDocument *pXMLDom,
 void Explorerplusplus::SaveWindowPositionToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement	*pWndPosNode = NULL;
+	IXMLDOMElement	*pWndPosNode = nullptr;
 	BSTR					bstr_wsnt = SysAllocString(L"\n\t");
 	BSTR					bstr;
 
 	bstr = SysAllocString(L"WindowPosition");
 	pXMLDom->createElement(bstr,&pWndPosNode);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	SaveWindowPositionToXMLInternal(pXMLDom,pWndPosNode);
 
@@ -1175,13 +1177,13 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pWndPosNode,pRoot);
 	pWndPosNode->Release();
-	pWndPosNode = NULL;
+	pWndPosNode = nullptr;
 }
 
 void Explorerplusplus::SaveWindowPositionToXMLInternal(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pWndPosNode)
 {
-	IXMLDOMElement	*pParentNode = NULL;
+	IXMLDOMElement	*pParentNode = nullptr;
 	WINDOWPLACEMENT			wndpl;
 	BSTR					bstr_wsntt = SysAllocString(L"\n\t\t");
 
@@ -1203,24 +1205,24 @@ IXMLDOMElement *pWndPosNode)
 	NXMLSettings::AddAttributeToNode(pXMLDom,pParentNode,_T("NormalPositionBottom"),NXMLSettings::EncodeIntValue(wndpl.rcNormalPosition.bottom));
 
 	pParentNode->Release();
-	pParentNode = NULL;
+	pParentNode = nullptr;
 }
 
 void Explorerplusplus::LoadToolbarInformationFromXML(IXMLDOMDocument *pXMLDom)
 {
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	IXMLDOMNamedNodeMap	*am = NULL;
-	IXMLDOMNode			*pChildNode = NULL;
+	IXMLDOMNodeList		*pNodes = nullptr;
+	IXMLDOMNode			*pNode = nullptr;
+	IXMLDOMNamedNodeMap	*am = nullptr;
+	IXMLDOMNode			*pChildNode = nullptr;
 	BSTR						bstrName;
 	BSTR						bstrValue;
-	BSTR						bstr = NULL;
+	BSTR						bstr = nullptr;
 	HRESULT						hr;
 	long						length;
 	long						lChildNodes;
 	long						j = 0;
 
-	if(pXMLDom == NULL)
+	if(pXMLDom == nullptr)
 		goto clean;
 
 	bstr = SysAllocString(L"//Toolbars/*");
@@ -1283,7 +1285,7 @@ void Explorerplusplus::LoadToolbarInformationFromXML(IXMLDOMDocument *pXMLDom)
 			}
 
 			pNode->Release();
-			pNode = NULL;
+			pNode = nullptr;
 		}
 	}
 
@@ -1296,8 +1298,8 @@ clean:
 void Explorerplusplus::SaveToolbarInformationToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement	*pe = NULL;
-	BSTR					bstr = NULL;
+	IXMLDOMElement	*pe = nullptr;
+	BSTR					bstr = nullptr;
 	BSTR					bstr_wsnt = SysAllocString(L"\n\t");
 
 	NXMLSettings::AddWhiteSpaceToNode(pXMLDom,bstr_wsnt,pRoot);
@@ -1305,7 +1307,7 @@ IXMLDOMElement *pRoot)
 	bstr = SysAllocString(L"Toolbars");
 	pXMLDom->createElement(bstr,&pe);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	SaveToolbarInformationToXMLnternal(pXMLDom,pe);
 
@@ -1313,13 +1315,13 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pe,pRoot);
 	pe->Release();
-	pe = NULL;
+	pe = nullptr;
 }
 
 void Explorerplusplus::SaveToolbarInformationToXMLnternal(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pe)
 {
-	IXMLDOMElement	*pParentNode = NULL;
+	IXMLDOMElement	*pParentNode = nullptr;
 	BSTR					bstr_wsntt = SysAllocString(L"\n\t\t");
 	BSTR					bstr_wsnttt = SysAllocString(L"\n\t\t\t");
 	REBARBANDINFO			rbi;
@@ -1348,7 +1350,7 @@ IXMLDOMElement *pe)
 			NXMLSettings::EncodeIntValue(rbi.cx));
 
 		pParentNode->Release();
-		pParentNode = NULL;
+		pParentNode = nullptr;
 	}
 
 	SysFreeString(bstr_wsntt);
@@ -1357,9 +1359,9 @@ IXMLDOMElement *pe)
 
 void Explorerplusplus::LoadApplicationToolbarFromXML(IXMLDOMDocument *pXMLDom)
 {
-	IXMLDOMNodeList		*pNodes = NULL;
-	IXMLDOMNode			*pNode = NULL;
-	BSTR						bstr = NULL;
+	IXMLDOMNodeList		*pNodes = nullptr;
+	IXMLDOMNode			*pNode = nullptr;
+	BSTR						bstr = nullptr;
 	HRESULT						hr;
 
 	if(!pXMLDom)
@@ -1377,14 +1379,12 @@ clean:
 	if (bstr) SysFreeString(bstr);
 	if (pNodes) pNodes->Release();
 	if (pNode) pNode->Release();
-
-	return;
 }
 
 void Explorerplusplus::SaveApplicationToolbarToXML(IXMLDOMDocument *pXMLDom,
 IXMLDOMElement *pRoot)
 {
-	IXMLDOMElement		*pe = NULL;
+	IXMLDOMElement		*pe = nullptr;
 	BSTR						bstr_wsnt = SysAllocString(L"\n\t");
 	BSTR						bstr;
 
@@ -1393,7 +1393,7 @@ IXMLDOMElement *pRoot)
 	bstr = SysAllocString(L"ApplicationToolbar");
 	pXMLDom->createElement(bstr,&pe);
 	SysFreeString(bstr);
-	bstr = NULL;
+	bstr = nullptr;
 
 	ApplicationToolbarPersistentSettings::GetInstance().SaveXMLSettings(pXMLDom,pe);
 
@@ -1401,7 +1401,7 @@ IXMLDOMElement *pRoot)
 
 	NXMLSettings::AppendChildToParent(pe, pRoot);
 	pe->Release();
-	pe = NULL;
+	pe = nullptr;
 
 	SysFreeString(bstr_wsnt);
 }
@@ -1425,7 +1425,7 @@ WCHAR *wszName,WCHAR *wszValue)
 	unsigned long	uNameHash;
 
 	WideCharToMultiByte(CP_ACP,0,wszName,-1,(LPSTR)szName,
-		SIZEOF_ARRAY(szName),NULL,NULL);
+		SIZEOF_ARRAY(szName), nullptr, nullptr);
 
 	uNameHash = hash_setting(szName);
 
@@ -1479,8 +1479,16 @@ WCHAR *wszName,WCHAR *wszValue)
 		m_config->displayWindowTextColor = NXMLSettings::ReadXMLColorData(pNode);
 		break;
 
+	case HASH_DISPLAYWINDOWWIDTH:
+		m_config->displayWindowWidth = NXMLSettings::DecodeIntValue(wszValue);
+		break;
+
 	case HASH_DISPLAYWINDOWHEIGHT:
 		m_config->displayWindowHeight = NXMLSettings::DecodeIntValue(wszValue);
+		break;
+
+	case HASH_DISPLAYWINDOWVERTICAL:
+		m_config->displayWindowVertical = NXMLSettings::DecodeBoolValue(wszValue);
 		break;
 
 	case HASH_DOUBLECLICKTABCLOSE:
@@ -1649,7 +1657,7 @@ WCHAR *wszName,WCHAR *wszValue)
 		break;
 
 	case HASH_STARTUPMODE:
-		m_config->startupMode = static_cast<StartupMode_t>(NXMLSettings::DecodeIntValue(wszValue));
+		m_config->startupMode = static_cast<StartupMode>(NXMLSettings::DecodeIntValue(wszValue));
 		break;
 
 	case HASH_SYNCHRONIZETREEVIEW:
@@ -1682,8 +1690,8 @@ WCHAR *wszName,WCHAR *wszValue)
 
 	case HASH_POSITION:
 		{
-			IXMLDOMNode	*pChildNode = NULL;
-			IXMLDOMNamedNodeMap	*am = NULL;
+			IXMLDOMNode	*pChildNode = nullptr;
+			IXMLDOMNamedNodeMap	*am = nullptr;
 			WINDOWPLACEMENT wndpl;
 			BSTR		bstrName;
 			BSTR		bstrValue;
@@ -1735,7 +1743,7 @@ WCHAR *wszName,WCHAR *wszValue)
 		break;
 
 	case HASH_INFOTIPTYPE:
-		m_config->infoTipType = static_cast<InfoTipType_t>(NXMLSettings::DecodeIntValue(wszValue));
+		m_config->infoTipType = static_cast<InfoTipType>(NXMLSettings::DecodeIntValue(wszValue));
 		break;
 
 	case HASH_ICON_THEME:

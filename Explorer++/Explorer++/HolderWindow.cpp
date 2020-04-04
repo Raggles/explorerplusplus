@@ -18,7 +18,7 @@
 
 #define HOLDER_CLASS_NAME	_T("Holder")
 
-ATOM				RegisterHolderWindowClass(void);
+ATOM				RegisterHolderWindowClass();
 LRESULT CALLBACK	HolderWndProcStub(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 
 HolderWindow::HolderWindow(HWND hHolder)
@@ -27,7 +27,7 @@ HolderWindow::HolderWindow(HWND hHolder)
 	m_bHolderResizing	= FALSE;
 }
 
-ATOM RegisterHolderWindowClass(void)
+ATOM RegisterHolderWindowClass()
 {
 	WNDCLASS wc;
 
@@ -35,11 +35,11 @@ ATOM RegisterHolderWindowClass(void)
 	wc.lpfnWndProc		= HolderWndProcStub;
 	wc.cbClsExtra		= 0;
 	wc.cbWndExtra		= sizeof(HolderWindow *);
-	wc.hInstance		= GetModuleHandle(0);
-	wc.hIcon			= NULL;
-	wc.hCursor			= LoadCursor(NULL,IDC_ARROW);
+	wc.hInstance		= GetModuleHandle(nullptr);
+	wc.hIcon			= nullptr;
+	wc.hCursor			= LoadCursor(nullptr,IDC_ARROW);
 	wc.hbrBackground	= (HBRUSH)GetSysColorBrush(COLOR_BTNFACE);
-	wc.lpszMenuName		= NULL;
+	wc.lpszMenuName		= nullptr;
 	wc.lpszClassName	= HOLDER_CLASS_NAME;
 
 	return RegisterClass(&wc);
@@ -52,14 +52,14 @@ HWND CreateHolderWindow(HWND hParent,TCHAR *szWindowName,UINT uStyle)
 	RegisterHolderWindowClass();
 
 	hHolder = CreateWindowEx(0,HOLDER_CLASS_NAME,szWindowName,
-		uStyle,0,0,0,0,hParent,NULL,GetModuleHandle(0),NULL);
+		uStyle,0,0,0,0,hParent, nullptr,GetModuleHandle(nullptr), nullptr);
 
 	return hHolder;
 }
 
 LRESULT CALLBACK HolderWndProcStub(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	HolderWindow *pHolderWindow = (HolderWindow *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	auto *pHolderWindow = (HolderWindow *)GetWindowLongPtr(hwnd,GWLP_USERDATA);
 
 	switch(msg)
 	{
@@ -74,7 +74,6 @@ LRESULT CALLBACK HolderWndProcStub(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 		case WM_NCDESTROY:
 			delete pHolderWindow;
 			return 0;
-			break;
 	}
 
 	return pHolderWindow->HolderWndProc(hwnd,msg,wParam,lParam);
@@ -94,7 +93,6 @@ LRESULT CALLBACK HolderWindow::HolderWndProc(HWND hwnd,UINT msg,WPARAM wParam,LP
 
 		case WM_MOUSEMOVE:
 			return OnHolderWindowMouseMove(lParam);
-			break;
 
 		case WM_PAINT:
 			OnHolderWindowPaint(hwnd);
@@ -142,15 +140,15 @@ void HolderWindow::OnHolderWindowPaint(HWND hwnd)
 
 void HolderWindow::OnHolderWindowLButtonDown(LPARAM lParam)
 {
-	POINTS CursorPos;
+	POINTS cursorPos;
 	RECT rc;
 
-	CursorPos = MAKEPOINTS(lParam);
+	cursorPos = MAKEPOINTS(lParam);
 	GetClientRect(m_hHolder,&rc);
 
-	if(CursorPos.x >= (rc.right - 10))
+	if(cursorPos.x >= (rc.right - 10))
 	{
-		SetCursor(LoadCursor(NULL,IDC_SIZEWE));
+		SetCursor(LoadCursor(nullptr,IDC_SIZEWE));
 
 		m_bHolderResizing = TRUE;
 
@@ -159,7 +157,7 @@ void HolderWindow::OnHolderWindowLButtonDown(LPARAM lParam)
 	}
 }
 
-void HolderWindow::OnHolderWindowLButtonUp(void)
+void HolderWindow::OnHolderWindowLButtonUp()
 {
 	m_bHolderResizing = FALSE;
 
@@ -193,7 +191,7 @@ int HolderWindow::OnHolderWindowMouseMove(LPARAM lParam)
 
 	if(ptsCursor.x >= (rc.right - 10))
 	{
-		SetCursor(LoadCursor(NULL,IDC_SIZEWE));
+		SetCursor(LoadCursor(nullptr,IDC_SIZEWE));
 	}
 
 	return 0;

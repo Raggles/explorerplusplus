@@ -147,7 +147,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalOptions>/IGNORE:4006 /IGNORE:4221 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
     </Lib>
@@ -173,7 +173,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalOptions>/IGNORE:4006 /IGNORE:4221 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
     </Lib>
@@ -203,7 +203,7 @@
     </ProjectReference>
     <Lib>
       <AdditionalOptions>/IGNORE:4006 /IGNORE:4221 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
     </Lib>
@@ -233,16 +233,15 @@
     </ProjectReference>
     <Lib>
       <AdditionalOptions>/IGNORE:4006 /IGNORE:4221 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);</AdditionalDependencies>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <PreprocessorDefinitions>BOOST_USE_WINDOWS_H;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <StringPooling>false</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
@@ -255,7 +254,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);windowscodecs.lib;shlwapi.lib;gdiplus.lib;psapi.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -263,9 +262,8 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <PreprocessorDefinitions>BOOST_USE_WINDOWS_H;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <StringPooling>false</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
@@ -278,7 +276,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;%(AdditionalDependencies);</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;iphlpapi.lib;userenv.lib;wmvcore.lib;rpcrt4.lib;gdiplus.lib;shlwapi.lib;comctl32.lib;uxtheme.lib;%(AdditionalDependencies);</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -308,6 +306,7 @@
     <ClCompile Include="FileContextMenuManager.cpp" />
     <ClCompile Include="FileOperations.cpp" />
     <ClCompile Include="FolderSize.cpp" />
+    <ClCompile Include="HeaderHelper.cpp" />
     <ClCompile Include="Helper.cpp" />
     <ClCompile Include="IconFetcher.cpp" />
     <ClCompile Include="iDataObject.cpp" />
@@ -370,6 +369,7 @@
     <ClInclude Include="FileContextMenuManager.h" />
     <ClInclude Include="FileOperations.h" />
     <ClInclude Include="FolderSize.h" />
+    <ClInclude Include="HeaderHelper.h" />
     <ClInclude Include="Helper.h" />
     <ClInclude Include="IconFetcher.h" />
     <ClInclude Include="iDataObject.h" />

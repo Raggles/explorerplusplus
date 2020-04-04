@@ -3,15 +3,26 @@
 // See LICENSE in the top level directory
 
 #include "stdafx.h"
-#include <unordered_map>
-#include "WindowHelper.h"
 #include "BaseDialog.h"
+#include "Controls.h"
 #include "Helper.h"
-
+#include "WindowHelper.h"
+#include <unordered_map>
 
 namespace
 {
-	std::unordered_map<HWND,BaseDialog *>	g_WindowMap;
+	std::unordered_map<HWND,BaseDialog *>	g_windowMap;
+}
+
+BaseDialog::BaseDialog(HINSTANCE hInstance, int iResource, HWND hParent, bool bResizable) :
+	MessageForwarder(),
+	m_hInstance(hInstance),
+	m_iResource(iResource),
+	m_hParent(hParent),
+	m_bResizable(bResizable)
+{
+	m_prd = NULL;
+	m_bShowingModelessDialog = FALSE;
 }
 
 INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lParam)
@@ -32,15 +43,15 @@ INT_PTR CALLBACK BaseDialogProcStub(HWND hDlg,UINT uMsg,WPARAM wParam,LPARAM lPa
 			correct object.
 			May also use thunks - see
 			http://www.hackcraft.net/cpp/windowsThunk/ */
-			g_WindowMap.insert(std::unordered_map<HWND,BaseDialog *>::
+			g_windowMap.insert(std::unordered_map<HWND,BaseDialog *>::
 				value_type(hDlg,reinterpret_cast<BaseDialog *>(lParam)));
 		}
 		break;
 	}
 
-	auto itr = g_WindowMap.find(hDlg);
+	auto itr = g_windowMap.find(hDlg);
 
-	if(itr != g_WindowMap.end())
+	if(itr != g_windowMap.end())
 	{
 		return itr->second->BaseDialogProc(hDlg,uMsg,wParam,lParam);
 	}
@@ -70,11 +81,11 @@ INT_PTR CALLBACK BaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
 				m_iMinWidth = GetRectWidth(&rcMain);
 				m_iMinHeight = GetRectHeight(&rcMain);
 
-				std::list<ResizableDialog::Control_t> ControlList;
+				std::list<ResizableDialog::Control_t> controlList;
 				m_dsc = DIALOG_SIZE_CONSTRAINT_NONE;
-				GetResizableControlInformation(m_dsc, ControlList);
+				GetResizableControlInformation(m_dsc, controlList);
 
-				m_prd = std::unique_ptr<ResizableDialog>(new ResizableDialog(m_hDlg, ControlList));
+				m_prd = std::unique_ptr<ResizableDialog>(new ResizableDialog(m_hDlg, controlList));
 			}
 
 			UINT dpi = m_dpiCompat.GetDpiForWindow(m_hDlg);
@@ -86,13 +97,15 @@ INT_PTR CALLBACK BaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
 			{
 				SetClassLongPtr(m_hDlg, GCLP_HICONSM, reinterpret_cast<LONG_PTR>(m_icon.get()));
 			}
+
+			m_tipWnd = CreateTooltipControl(m_hDlg, m_hInstance);
 		}
 		break;
 
 	case WM_GETMINMAXINFO:
 		if(m_bResizable)
 		{
-			LPMINMAXINFO pmmi = reinterpret_cast<LPMINMAXINFO>(lParam);
+			auto pmmi = reinterpret_cast<LPMINMAXINFO>(lParam);
 
 			pmmi->ptMinTrackSize.x = m_iMinWidth;
 			pmmi->ptMinTrackSize.y = m_iMinHeight;
@@ -139,7 +152,7 @@ INT_PTR CALLBACK BaseDialog::BaseDialogProc(HWND hDlg,UINT uMsg,
 		break;
 
 	case WM_NCDESTROY:
-		g_WindowMap.erase(g_WindowMap.find(hDlg));
+		g_windowMap.erase(g_windowMap.find(hDlg));
 		break;
 	}
 
@@ -162,18 +175,6 @@ INT_PTR BaseDialog::GetDefaultReturnValue(HWND hwnd,UINT uMsg,WPARAM wParam,LPAR
 	UNREFERENCED_PARAMETER(lParam);
 
 	return 0;
-}
-
-BaseDialog::BaseDialog(HINSTANCE hInstance,int iResource,
-	HWND hParent,bool bResizable) :
-MessageForwarder(),
-m_hInstance(hInstance),
-m_iResource(iResource),
-m_hParent(hParent),
-m_bResizable(bResizable)
-{
-	m_prd = NULL;
-	m_bShowingModelessDialog = FALSE;
 }
 
 HINSTANCE BaseDialog::GetInstance() const
@@ -218,13 +219,25 @@ HWND BaseDialog::ShowModelessDialog(IModelessDialogNotification *pmdn)
 }
 
 void BaseDialog::GetResizableControlInformation(DialogSizeConstraint &dsc,
-	std::list<ResizableDialog::Control_t> &ControlList)
+	std::list<ResizableDialog::Control_t> &controlList)
 {
 	UNREFERENCED_PARAMETER(dsc);
-	UNREFERENCED_PARAMETER(ControlList);
+	UNREFERENCED_PARAMETER(controlList);
 }
 
 void BaseDialog::SaveState()
 {
 
+}
+
+void BaseDialog::AddTooltipForControl(int controlId, int stringResourceId)
+{
+	TOOLINFO toolInfo = {};
+	toolInfo.cbSize = sizeof(toolInfo);
+	toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+	toolInfo.hwnd = m_hDlg;
+	toolInfo.uId = reinterpret_cast<UINT_PTR>(GetDlgItem(m_hDlg, controlId));
+	toolInfo.hinst = m_hInstance;
+	toolInfo.lpszText = MAKEINTRESOURCE(stringResourceId);
+	SendMessage(m_tipWnd, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&toolInfo));
 }

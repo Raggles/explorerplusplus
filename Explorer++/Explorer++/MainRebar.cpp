@@ -6,11 +6,15 @@
 #include "Explorer++.h"
 #include "AddressBar.h"
 #include "ApplicationToolbar.h"
-#include "BookmarksToolbar.h"
+#include "Bookmarks/UI/BookmarksToolbar.h"
 #include "Config.h"
 #include "DrivesToolbar.h"
 #include "Explorer++_internal.h"
 #include "MainResource.h"
+#include "MainToolbar.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "ShellBrowser/ShellNavigationController.h"
+#include "TabContainer.h"
 #include "../Helper/Controls.h"
 #include "../Helper/MenuHelper.h"
 #include "../Helper/WindowHelper.h"
@@ -32,7 +36,7 @@ DWORD RebarStyles = WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS |
 WS_BORDER | CCS_NODIVIDER | CCS_TOP | CCS_NOPARENTALIGN |
 RBS_BANDBORDERS | RBS_VARHEIGHT;
 
-void Explorerplusplus::InitializeMainToolbars(void)
+void Explorerplusplus::InitializeMainToolbars()
 {
 	/* Initialize the main toolbar styles and settings here. The visibility and gripper
 	styles will be set after the settings have been loaded (needed to keep compatibility
@@ -45,7 +49,7 @@ void Explorerplusplus::InitializeMainToolbars(void)
 	m_ToolbarInformation[0].cxMinChild = 0;
 	m_ToolbarInformation[0].cyIntegral = 0;
 	m_ToolbarInformation[0].cxHeader = 0;
-	m_ToolbarInformation[0].lpText = NULL;
+	m_ToolbarInformation[0].lpText = nullptr;
 
 	m_ToolbarInformation[1].wID = ID_ADDRESSTOOLBAR;
 	m_ToolbarInformation[1].fMask = RBBIM_ID | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_STYLE | RBBIM_TEXT;
@@ -55,7 +59,7 @@ void Explorerplusplus::InitializeMainToolbars(void)
 	m_ToolbarInformation[1].cxMinChild = 0;
 	m_ToolbarInformation[1].cyIntegral = 0;
 	m_ToolbarInformation[1].cxHeader = 0;
-	m_ToolbarInformation[1].lpText = NULL;
+	m_ToolbarInformation[1].lpText = nullptr;
 
 	m_ToolbarInformation[2].wID = ID_BOOKMARKSTOOLBAR;
 	m_ToolbarInformation[2].fMask = RBBIM_ID | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_IDEALSIZE | RBBIM_STYLE;
@@ -65,7 +69,7 @@ void Explorerplusplus::InitializeMainToolbars(void)
 	m_ToolbarInformation[2].cxMinChild = 0;
 	m_ToolbarInformation[2].cyIntegral = 0;
 	m_ToolbarInformation[2].cxHeader = 0;
-	m_ToolbarInformation[2].lpText = NULL;
+	m_ToolbarInformation[2].lpText = nullptr;
 
 	m_ToolbarInformation[3].wID = ID_DRIVESTOOLBAR;
 	m_ToolbarInformation[3].fMask = RBBIM_ID | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_IDEALSIZE | RBBIM_STYLE;
@@ -75,7 +79,7 @@ void Explorerplusplus::InitializeMainToolbars(void)
 	m_ToolbarInformation[3].cxMinChild = 0;
 	m_ToolbarInformation[3].cyIntegral = 0;
 	m_ToolbarInformation[3].cxHeader = 0;
-	m_ToolbarInformation[3].lpText = NULL;
+	m_ToolbarInformation[3].lpText = nullptr;
 
 	m_ToolbarInformation[4].wID = ID_APPLICATIONSTOOLBAR;
 	m_ToolbarInformation[4].fMask = RBBIM_ID | RBBIM_CHILD | RBBIM_CHILDSIZE | RBBIM_SIZE | RBBIM_IDEALSIZE | RBBIM_STYLE;
@@ -85,14 +89,14 @@ void Explorerplusplus::InitializeMainToolbars(void)
 	m_ToolbarInformation[4].cxMinChild = 0;
 	m_ToolbarInformation[4].cyIntegral = 0;
 	m_ToolbarInformation[4].cxHeader = 0;
-	m_ToolbarInformation[4].lpText = NULL;
+	m_ToolbarInformation[4].lpText = nullptr;
 }
 
-void Explorerplusplus::CreateMainControls(void)
+void Explorerplusplus::CreateMainControls()
 {
 	SIZE	sz;
 	RECT	rc;
-	DWORD	ToolbarSize;
+	DWORD	toolbarSize;
 	TCHAR	szBandText[32];
 	int		i = 0;
 
@@ -103,7 +107,7 @@ void Explorerplusplus::CreateMainControls(void)
 
 	/* Create and subclass the main rebar control. */
 	m_hMainRebar = CreateWindowEx(0, REBARCLASSNAME, EMPTY_STRING, RebarStyles,
-		0, 0, 0, 0, m_hContainer, NULL, GetModuleHandle(0), NULL);
+		0, 0, 0, 0, m_hContainer, nullptr, GetModuleHandle(nullptr), nullptr);
 	SetWindowSubclass(m_hMainRebar, RebarSubclassStub, 0, (DWORD_PTR)this);
 
 	for (i = 0; i < NUM_MAIN_TOOLBARS; i++)
@@ -112,10 +116,10 @@ void Explorerplusplus::CreateMainControls(void)
 		{
 		case ID_MAINTOOLBAR:
 			CreateMainToolbar();
-			ToolbarSize = (DWORD)SendMessage(m_mainToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
-			m_ToolbarInformation[i].cyMinChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyMaxChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyChild = HIWORD(ToolbarSize);
+			toolbarSize = (DWORD)SendMessage(m_mainToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
+			m_ToolbarInformation[i].cyMinChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyMaxChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyChild = HIWORD(toolbarSize);
 			SendMessage(m_mainToolbar->GetHWND(), TB_GETMAXSIZE, 0, (LPARAM)&sz);
 
 			if (m_ToolbarInformation[i].cx == 0)
@@ -136,10 +140,10 @@ void Explorerplusplus::CreateMainControls(void)
 
 		case ID_BOOKMARKSTOOLBAR:
 			CreateBookmarksToolbar();
-			ToolbarSize = (DWORD)SendMessage(m_hBookmarksToolbar, TB_GETBUTTONSIZE, 0, 0);
-			m_ToolbarInformation[i].cyMinChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyMaxChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyChild = HIWORD(ToolbarSize);
+			toolbarSize = (DWORD)SendMessage(m_hBookmarksToolbar, TB_GETBUTTONSIZE, 0, 0);
+			m_ToolbarInformation[i].cyMinChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyMaxChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyChild = HIWORD(toolbarSize);
 			SendMessage(m_hBookmarksToolbar, TB_GETMAXSIZE, 0, (LPARAM)&sz);
 
 			if (m_ToolbarInformation[i].cx == 0)
@@ -151,10 +155,10 @@ void Explorerplusplus::CreateMainControls(void)
 
 		case ID_DRIVESTOOLBAR:
 			CreateDrivesToolbar();
-			ToolbarSize = (DWORD)SendMessage(m_pDrivesToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
-			m_ToolbarInformation[i].cyMinChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyMaxChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyChild = HIWORD(ToolbarSize);
+			toolbarSize = (DWORD)SendMessage(m_pDrivesToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
+			m_ToolbarInformation[i].cyMinChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyMaxChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyChild = HIWORD(toolbarSize);
 			SendMessage(m_pDrivesToolbar->GetHWND(), TB_GETMAXSIZE, 0, (LPARAM)&sz);
 
 			if (m_ToolbarInformation[i].cx == 0)
@@ -166,10 +170,10 @@ void Explorerplusplus::CreateMainControls(void)
 
 		case ID_APPLICATIONSTOOLBAR:
 			CreateApplicationToolbar();
-			ToolbarSize = (DWORD)SendMessage(m_pApplicationToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
-			m_ToolbarInformation[i].cyMinChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyMaxChild = HIWORD(ToolbarSize);
-			m_ToolbarInformation[i].cyChild = HIWORD(ToolbarSize);
+			toolbarSize = (DWORD)SendMessage(m_pApplicationToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0);
+			m_ToolbarInformation[i].cyMinChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyMaxChild = HIWORD(toolbarSize);
+			m_ToolbarInformation[i].cyChild = HIWORD(toolbarSize);
 			SendMessage(m_pApplicationToolbar->GetHWND(), TB_GETMAXSIZE, 0, (LPARAM)&sz);
 
 			if (m_ToolbarInformation[i].cx == 0)
@@ -190,7 +194,7 @@ LRESULT CALLBACK RebarSubclassStub(HWND hwnd, UINT uMsg,
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	Explorerplusplus *pContainer = (Explorerplusplus *)dwRefData;
+	auto *pContainer = (Explorerplusplus *)dwRefData;
 
 	return pContainer->RebarSubclass(hwnd, uMsg, wParam, lParam);
 }
@@ -212,11 +216,10 @@ LRESULT CALLBACK Explorerplusplus::RebarSubclass(HWND hwnd, UINT msg, WPARAM wPa
 		{
 		case NM_RCLICK:
 		{
-			LPNMMOUSE pnmm = reinterpret_cast<LPNMMOUSE>(lParam);
+			auto pnmm = reinterpret_cast<LPNMMOUSE>(lParam);
 			OnToolbarRClick(pnmm->hdr.hwndFrom);
 		}
 		return TRUE;
-		break;
 		}
 		break;
 	}
@@ -235,12 +238,12 @@ void Explorerplusplus::OnToolbarRClick(HWND sourceWindow)
 
 	HMENU menu = GetSubMenu(parentMenu.get(), 0);
 
-	lCheckMenuItem(menu, IDM_TOOLBARS_ADDRESSBAR, m_config->showAddressBar);
-	lCheckMenuItem(menu, IDM_TOOLBARS_MAINTOOLBAR, m_config->showMainToolbar);
-	lCheckMenuItem(menu, IDM_TOOLBARS_BOOKMARKSTOOLBAR, m_config->showBookmarksToolbar);
-	lCheckMenuItem(menu, IDM_TOOLBARS_DRIVES, m_config->showDrivesToolbar);
-	lCheckMenuItem(menu, IDM_TOOLBARS_APPLICATIONTOOLBAR, m_config->showApplicationToolbar);
-	lCheckMenuItem(menu, IDM_TOOLBARS_LOCKTOOLBARS, m_config->lockToolbars);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_ADDRESSBAR, m_config->showAddressBar);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_MAINTOOLBAR, m_config->showMainToolbar);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_BOOKMARKSTOOLBAR, m_config->showBookmarksToolbar);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_DRIVES, m_config->showDrivesToolbar);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_APPLICATIONTOOLBAR, m_config->showApplicationToolbar);
+	MenuHelper::CheckItem(menu, IDM_TOOLBARS_LOCKTOOLBARS, m_config->lockToolbars);
 
 	DWORD dwPos = GetMessagePos();
 
@@ -251,7 +254,7 @@ void Explorerplusplus::OnToolbarRClick(HWND sourceWindow)
 	// Give any observers a chance to modify the menu.
 	m_toolbarContextMenuSignal(menu, sourceWindow, ptCursor);
 
-	TrackPopupMenu(menu, TPM_LEFTALIGN, ptCursor.x, ptCursor.y, 0, m_hMainRebar, NULL);
+	TrackPopupMenu(menu, TPM_LEFTALIGN, ptCursor.x, ptCursor.y, 0, m_hMainRebar, nullptr);
 }
 
 boost::signals2::connection Explorerplusplus::AddToolbarContextMenuObserver(const ToolbarContextMenuSignal::slot_type &observer)
@@ -266,7 +269,7 @@ void Explorerplusplus::CreateAddressBar()
 
 void Explorerplusplus::CreateMainToolbar()
 {
-	m_mainToolbar = MainToolbar::Create(m_hMainRebar, m_hLanguageModule, this, m_navigation.get(), m_config);
+	m_mainToolbar = MainToolbar::Create(m_hMainRebar, m_hLanguageModule, this, m_config);
 
 	// This should be done in the MainToolbar class. However, the TB_SAVERESTORE
 	// message needs to be sent to the toolbar window. That's incompatible with
@@ -307,7 +310,7 @@ void Explorerplusplus::CreateMainToolbar()
 		boost::bind(&Explorerplusplus::OnUseLargeToolbarIconsUpdated, this, _1), boost::signals2::at_back));
 }
 
-void Explorerplusplus::CreateBookmarksToolbar(void)
+void Explorerplusplus::CreateBookmarksToolbar()
 {
 	m_hBookmarksToolbar = CreateToolbar(m_hMainRebar, BookmarkToolbarStyles,
 		TBSTYLE_EX_MIXEDBUTTONS | TBSTYLE_EX_DRAWDDARROWS |
@@ -317,7 +320,7 @@ void Explorerplusplus::CreateBookmarksToolbar(void)
 		m_navigation.get(), &m_bookmarkTree, TOOLBAR_BOOKMARK_START, TOOLBAR_BOOKMARK_END);
 }
 
-void Explorerplusplus::CreateDrivesToolbar(void)
+void Explorerplusplus::CreateDrivesToolbar()
 {
 	m_pDrivesToolbar = DrivesToolbar::Create(m_hMainRebar, TOOLBAR_DRIVES_ID_START,
 		TOOLBAR_DRIVES_ID_END, m_hLanguageModule, this, m_navigation.get());
@@ -333,7 +336,7 @@ void Explorerplusplus::OnUseLargeToolbarIconsUpdated(BOOL newValue)
 {
 	UNREFERENCED_PARAMETER(newValue);
 
-	DWORD buttonSize = static_cast<DWORD>(SendMessage(m_mainToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0));
+	auto buttonSize = static_cast<DWORD>(SendMessage(m_mainToolbar->GetHWND(), TB_GETBUTTONSIZE, 0, 0));
 
 	REBARBANDINFO bandInfo;
 	bandInfo.cbSize = sizeof(bandInfo);
@@ -347,7 +350,7 @@ void Explorerplusplus::OnUseLargeToolbarIconsUpdated(BOOL newValue)
 
 HMENU Explorerplusplus::CreateRebarHistoryMenu(BOOL bBack)
 {
-	HMENU hSubMenu = NULL;
+	HMENU hSubMenu = nullptr;
 	std::vector<HistoryEntry *> history;
 	int iBase;
 
@@ -364,7 +367,7 @@ HMENU Explorerplusplus::CreateRebarHistoryMenu(BOOL bBack)
 		history = tab.GetShellBrowser()->GetNavigationController()->GetForwardHistory();
 	}
 
-	if (history.size() > 0)
+	if (!history.empty())
 	{
 		int i = 0;
 

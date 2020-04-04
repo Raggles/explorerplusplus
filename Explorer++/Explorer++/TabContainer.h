@@ -4,24 +4,26 @@
 
 #pragma once
 
-#include "CoreInterface.h"
-#include "ShellBrowser/ShellBrowser.h"
+#include "ShellBrowser/FolderSettings.h"
 #include "SignalWrapper.h"
 #include "Tab.h"
 #include "TabNavigationInterface.h"
 #include "../Helper/BaseWindow.h"
 #include "../Helper/DpiCompatibility.h"
+#include "../Helper/IconFetcher.h"
 #include "../Helper/WindowSubclassWrapper.h"
-#include <boost/optional.hpp>
+#include <boost/parameter.hpp>
 #include <boost/signals2.hpp>
 #include <wil/com.h>
 #include <wil/resource.h>
 #include <functional>
+#include <optional>
 #include <unordered_map>
 
 class BookmarkTree;
 class CachedIcons;
 struct Config;
+__interface IExplorerplusplus;
 class Navigation;
 struct PreservedTab;
 
@@ -36,24 +38,24 @@ BOOST_PARAMETER_NAME(lockState)
 // introduced until C++20.
 struct TabSettingsImpl
 {
-	template <class ArgumentPack>
-	TabSettingsImpl(const ArgumentPack &args)
+	template <class ArgumentPack> TabSettingsImpl(const ArgumentPack &args)
 	{
-		name = args[_name | boost::none];
-		lockState = args[_lockState | boost::none];
-		index = args[_index | boost::none];
-		selected = args[_selected | boost::none];
+		name = args[_name | std::nullopt];
+		lockState = args[_lockState | std::nullopt];
+		index = args[_index | std::nullopt];
+		selected = args[_selected | std::nullopt];
 	}
 
-	boost::optional<std::wstring> name;
-	boost::optional<Tab::LockState> lockState;
-	boost::optional<int> index;
-	boost::optional<bool> selected;
+	std::optional<std::wstring> name;
+	std::optional<Tab::LockState> lockState;
+	std::optional<int> index;
+	std::optional<bool> selected;
 };
 
 // Used when creating a tab.
 struct TabSettings : TabSettingsImpl
 {
+	// clang-format off
 	BOOST_PARAMETER_CONSTRUCTOR(
 		TabSettings,
 		(TabSettingsImpl),
@@ -65,24 +67,24 @@ struct TabSettings : TabSettingsImpl
 			(selected, (bool))
 		)
 	)
+	// clang-format on
 };
 
 class TabContainer : public BaseWindow
 {
 public:
-
 	static TabContainer *Create(HWND parent, TabNavigationInterface *tabNavigation,
-		Navigation *navigation, IExplorerplusplus *expp, CachedIcons *cachedIcons,
-		BookmarkTree *bookmarkTree, HINSTANCE instance, std::shared_ptr<Config> config);
+		IExplorerplusplus *expp, CachedIcons *cachedIcons, BookmarkTree *bookmarkTree,
+		HINSTANCE instance, std::shared_ptr<Config> config);
 
 	HRESULT CreateNewTabInDefaultDirectory(const TabSettings &tabSettings);
 	HRESULT CreateNewTab(const TCHAR *TabDirectory, const TabSettings &tabSettings = {},
-		const FolderSettings *folderSettings = nullptr, boost::optional<FolderColumns> initialColumns = boost::none,
-		int *newTabId = nullptr);
+		const FolderSettings *folderSettings = nullptr,
+		std::optional<FolderColumns> initialColumns = std::nullopt, int *newTabId = nullptr);
 	HRESULT CreateNewTab(const PreservedTab &preservedTab, int *newTabId = nullptr);
 	HRESULT CreateNewTab(PCIDLIST_ABSOLUTE pidlDirectory, const TabSettings &tabSettings = {},
-		const FolderSettings *folderSettings = nullptr, boost::optional<FolderColumns> initialColumns = boost::none,
-		int *newTabId = nullptr);
+		const FolderSettings *folderSettings = nullptr,
+		std::optional<FolderColumns> initialColumns = std::nullopt, int *newTabId = nullptr);
 
 	Tab &GetTab(int tabId);
 	Tab *GetTabOptional(int tabId);
@@ -110,32 +112,35 @@ public:
 	// Signals
 	SignalWrapper<TabContainer, void(int tabId, BOOL switchToNewTab)> tabCreatedSignal;
 	SignalWrapper<TabContainer, void(const Tab &tab)> tabNavigationCompletedSignal;
-	SignalWrapper<TabContainer, void(const Tab &tab, Tab::PropertyType propertyType)> tabUpdatedSignal;
+	SignalWrapper<TabContainer, void(const Tab &tab, Tab::PropertyType propertyType)>
+		tabUpdatedSignal;
 	SignalWrapper<TabContainer, void(const Tab &tab, int fromIndex, int toIndex)> tabMovedSignal;
 	SignalWrapper<TabContainer, void(const Tab &tab)> tabSelectedSignal;
 	SignalWrapper<TabContainer, void(const Tab &tab)> tabPreRemovalSignal;
 	SignalWrapper<TabContainer, void(int tabId)> tabRemovedSignal;
 
 	SignalWrapper<TabContainer, void(const Tab &tab)> tabListViewSelectionChanged;
+	SignalWrapper<TabContainer, void(const Tab &tab)> tabColumnsChanged;
 
 private:
-
 	static const UINT_PTR SUBCLASS_ID = 0;
 	static const UINT_PTR PARENT_SUBCLASS_ID = 0;
 
 	static const int ICON_SIZE_96DPI = 16;
 
-	TabContainer(HWND parent, TabNavigationInterface *tabNavigation, Navigation *navigation,
-		IExplorerplusplus *expp, CachedIcons *cachedIcons, BookmarkTree *bookmarkTree,
-		HINSTANCE instance, std::shared_ptr<Config> config);
+	TabContainer(HWND parent, TabNavigationInterface *tabNavigation, IExplorerplusplus *expp,
+		CachedIcons *cachedIcons, BookmarkTree *bookmarkTree, HINSTANCE instance,
+		std::shared_ptr<Config> config);
 	~TabContainer();
 
 	static HWND CreateTabControl(HWND parent, BOOL forceSameTabWidth);
 
-	static LRESULT CALLBACK WndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	static LRESULT CALLBACK WndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+		UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-	static LRESULT CALLBACK ParentWndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+	static LRESULT CALLBACK ParentWndProcStub(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+		UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 	LRESULT CALLBACK ParentWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 	void Initialize(HWND parent);
@@ -146,7 +151,7 @@ private:
 		bool addHistoryEntry, int *newTabId);
 
 	void OnTabCtrlLButtonDown(POINT *pt);
-	void OnTabCtrlLButtonUp(void);
+	void OnTabCtrlLButtonUp();
 	void OnTabCtrlMouseMove(POINT *pt);
 
 	void OnLButtonDoubleClick(const POINT &pt);
@@ -185,7 +190,8 @@ private:
 	void SetTabIconFromSystemImageList(const Tab &tab, int systemIconIndex);
 	void SetTabIconFromImageList(const Tab &tab, int imageIndex);
 
-	void InsertNewTab(int index, int tabId, PCIDLIST_ABSOLUTE pidlDirectory, boost::optional<std::wstring> customName);
+	void InsertNewTab(int index, int tabId, PCIDLIST_ABSOLUTE pidlDirectory,
+		std::optional<std::wstring> customName);
 
 	void RemoveTabFromControl(const Tab &tab);
 
@@ -202,7 +208,6 @@ private:
 	int m_tabIconLockIndex;
 
 	TabNavigationInterface *m_tabNavigation;
-	Navigation *m_navigation;
 	IExplorerplusplus *m_expp;
 
 	HINSTANCE m_instance;

@@ -4,24 +4,22 @@
 
 #pragma once
 
-#include "CoreInterface.h"
 #include "ShellBrowser/FolderSettings.h"
-#include "ShellBrowser/ShellBrowser.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ResizableDialog.h"
 #include <wil/resource.h>
 #include <unordered_map>
 
-enum FolderType_t
+enum class FolderType
 {
-	FOLDER_TYPE_GENERAL = 0,
-	FOLDER_TYPE_COMPUTER = 1,
-	FOLDER_TYPE_CONTROL_PANEL = 2,
-	FOLDER_TYPE_NETWORK = 3,
-	FOLDER_TYPE_NETWORK_PLACES = 4,
-	FOLDER_TYPE_PRINTERS = 5,
-	FOLDER_TYPE_RECYCLE_BIN = 6
+	General = 0,
+	Computer = 1,
+	ControlPanel = 2,
+	Network = 3,
+	NetworkPlaces = 4,
+	Printers = 5,
+	RecycleBin = 6
 };
 
 class SetDefaultColumnsDialog;
@@ -45,13 +43,13 @@ private:
 	SetDefaultColumnsDialogPersistentSettings(const SetDefaultColumnsDialogPersistentSettings &);
 	SetDefaultColumnsDialogPersistentSettings & operator=(const SetDefaultColumnsDialogPersistentSettings &);
 
-	void			SaveExtraRegistrySettings(HKEY hKey);
-	void			LoadExtraRegistrySettings(HKEY hKey);
+	void			SaveExtraRegistrySettings(HKEY hKey) override;
+	void			LoadExtraRegistrySettings(HKEY hKey) override;
 
-	void			SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom, IXMLDOMElement *pParentNode);
-	void			LoadExtraXMLSettings(BSTR bstrName, BSTR bstrValue);
+	void			SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom, IXMLDOMElement *pParentNode) override;
+	void			LoadExtraXMLSettings(BSTR bstrName, BSTR bstrValue) override;
 
-	FolderType_t	m_FolderType;
+	FolderType	m_FolderType;
 };
 
 class SetDefaultColumnsDialog : public BaseDialog
@@ -62,15 +60,15 @@ public:
 
 protected:
 
-	INT_PTR	OnInitDialog();
-	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
-	INT_PTR	OnNotify(NMHDR *pnmhdr);
-	INT_PTR	OnClose();
+	INT_PTR	OnInitDialog() override;
+	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam) override;
+	INT_PTR	OnNotify(NMHDR *pnmhdr) override;
+	INT_PTR	OnClose() override;
 
 private:
 
-	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList);
-	void	SaveState();
+	void	GetResizableControlInformation(BaseDialog::DialogSizeConstraint &dsc, std::list<ResizableDialog::Control_t> &ControlList) override;
+	void	SaveState() override;
 
 	void	OnOk();
 	void	OnCancel();
@@ -78,15 +76,15 @@ private:
 	void	OnLvnItemChanged(NMLISTVIEW *pnmlv);
 	void	OnMoveColumn(bool bUp);
 
-	void	SaveCurrentColumnState(FolderType_t FolderType);
-	void	SetupFolderColumns(FolderType_t FolderType);
+	void	SaveCurrentColumnState(FolderType folderType);
+	void	SetupFolderColumns(FolderType folderType);
 
-	std::vector<Column_t>	&GetCurrentColumnList(FolderType_t FolderType);
+	std::vector<Column_t>	&GetCurrentColumnList(FolderType folderType);
 
 	FolderColumns		&m_folderColumns;
 
-	std::unordered_map<int,FolderType_t>	m_FolderMap;
-	FolderType_t		m_PreviousFolderType;
+	std::unordered_map<int,FolderType>	m_FolderMap;
+	FolderType		m_PreviousFolderType;
 
 	wil::unique_hicon	m_icon;
 

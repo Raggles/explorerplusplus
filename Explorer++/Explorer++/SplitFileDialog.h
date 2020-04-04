@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include "CoreInterface.h"
 #include "../Helper/BaseDialog.h"
 #include "../Helper/DialogSettings.h"
 #include "../Helper/ReferenceCount.h"
-#include <list>
 #include <string>
 #include <unordered_map>
 
+__interface IExplorerplusplus;
 class SplitFileDialog;
 
 class SplitFileDialogPersistentSettings : public DialogSettings
@@ -34,11 +33,11 @@ private:
 	SplitFileDialogPersistentSettings(const SplitFileDialogPersistentSettings &);
 	SplitFileDialogPersistentSettings & operator=(const SplitFileDialogPersistentSettings &);
 
-	void			SaveExtraRegistrySettings(HKEY hKey);
-	void			LoadExtraRegistrySettings(HKEY hKey);
+	void			SaveExtraRegistrySettings(HKEY hKey) override;
+	void			LoadExtraRegistrySettings(HKEY hKey) override;
 
-	void			SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom, IXMLDOMElement *pParentNode);
-	void			LoadExtraXMLSettings(BSTR bstrName, BSTR bstrValue);
+	void			SaveExtraXMLSettings(IXMLDOMDocument *pXMLDom, IXMLDOMElement *pParentNode) override;
+	void			LoadExtraXMLSettings(BSTR bstrName, BSTR bstrValue) override;
 
 	std::wstring	m_strSplitSize;
 	std::wstring	m_strSplitGroup;
@@ -48,7 +47,8 @@ class SplitFile : public ReferenceCount
 {
 public:
 	
-	SplitFile(HWND hDlg,std::wstring strFullFilename,std::wstring strOutputFilename,std::wstring strOutputDirectory,UINT uSplitSize);
+	SplitFile(HWND hDlg, const std::wstring &strFullFilename, const std::wstring &strOutputFilename,
+		const std::wstring &strOutputDirectory, UINT uSplitSize);
 	~SplitFile();
 
 	void	Split();
@@ -75,41 +75,41 @@ class SplitFileDialog : public BaseDialog
 public:
 
 	SplitFileDialog(HINSTANCE hInstance, HWND hParent, IExplorerplusplus *expp,
-		std::wstring strFullFilename);
+		const std::wstring &strFullFilename);
 	~SplitFileDialog();
 
 protected:
 
-	INT_PTR	OnInitDialog();
-	INT_PTR	OnTimer(int iTimerID);
-	INT_PTR	OnCtlColorStatic(HWND hwnd,HDC hdc);
-	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam);
-	INT_PTR	OnClose();
-	INT_PTR	OnDestroy();
+	INT_PTR	OnInitDialog() override;
+	INT_PTR	OnTimer(int iTimerID) override;
+	INT_PTR	OnCtlColorStatic(HWND hwnd,HDC hdc) override;
+	INT_PTR	OnCommand(WPARAM wParam,LPARAM lParam) override;
+	INT_PTR	OnClose() override;
+	INT_PTR	OnDestroy() override;
 
-	void	SaveState();
+	void	SaveState() override;
 
-	INT_PTR	OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam);
+	INT_PTR	OnPrivateMessage(UINT uMsg,WPARAM wParam,LPARAM lParam) override;
 
 	virtual wil::unique_hicon GetDialogIcon(int iconWidth, int iconHeight) const override;
 
 private:
 
-	enum SizeType_t
+	enum class SizeType
 	{
-		SIZE_TYPE_BYTES,
-		SIZE_TYPE_KB,
-		SIZE_TYPE_MB,
-		SIZE_TYPE_GB,
+		Bytes,
+		KB,
+		MB,
+		GB,
 	};
 
-	enum ErrorType_t
+	enum class ErrorType
 	{
-		ERROR_NONE,
-		ERROR_OUTPUT_FILENAME_EMPTY,
-		ERROR_OUTPUT_FILENAME_CONSTANT,
-		ERROR_OUTPUT_DIRECTORY_EMPTY,
-		ERROR_SPLIT_SIZE
+		None,
+		OutputFilenameEmpty,
+		OutputFilenameConstant,
+		OutputDirectoryEmpty,
+		SplitSize
 	};
 
 	static const COLORREF HELPER_TEXT_COLOR = RGB(120,120,120);
@@ -132,7 +132,7 @@ private:
 	bool m_bSplittingFile;
 	bool m_bStopSplitting;
 
-	std::unordered_map<int,SizeType_t> m_SizeMap;
+	std::unordered_map<int,SizeType> m_SizeMap;
 
 	SplitFile *m_pSplitFile;
 	HFONT m_hHelperTextFont;
@@ -140,7 +140,7 @@ private:
 	TCHAR m_szOk[32];
 	UINT m_uElapsedTime;
 
-	ErrorType_t m_CurrentError;
+	ErrorType m_CurrentError;
 
 	SplitFileDialogPersistentSettings *m_persistentSettings;
 };

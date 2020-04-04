@@ -5,11 +5,15 @@
 #include "stdafx.h"
 #include "ShellBrowser.h"
 #include "Config.h"
+#include "ItemData.h"
 #include "MainResource.h"
 #include "ResourceHelper.h"
+#include "SelectColumnsDialog.h"
 #include "SetFileAttributesDialog.h"
+#include "ShellNavigationController.h"
 #include "../Helper/CachedIcons.h"
 #include "../Helper/Helper.h"
+#include "../Helper/IconFetcher.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/ShellHelper.h"
 #include <boost/format.hpp>
@@ -47,7 +51,7 @@ LRESULT CALLBACK ShellBrowser::ListViewProcStub(HWND hwnd, UINT uMsg, WPARAM wPa
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	ShellBrowser *shellBrowser = reinterpret_cast<ShellBrowser *>(dwRefData);
+	auto *shellBrowser = reinterpret_cast<ShellBrowser *>(dwRefData);
 	return shellBrowser->ListViewProc(hwnd, uMsg, wParam, lParam);
 }
 
@@ -91,7 +95,7 @@ LRESULT CALLBACK ShellBrowser::ListViewParentProcStub(HWND hwnd, UINT uMsg, WPAR
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	ShellBrowser *shellBrowser = reinterpret_cast<ShellBrowser *>(dwRefData);
+	auto *shellBrowser = reinterpret_cast<ShellBrowser *>(dwRefData);
 	return shellBrowser->ListViewParentProc(hwnd, uMsg, wParam, lParam);
 }
 
@@ -110,7 +114,6 @@ LRESULT CALLBACK ShellBrowser::ListViewParentProc(HWND hwnd, UINT uMsg, WPARAM w
 
 			case LVN_GETINFOTIP:
 				return OnListViewGetInfoTip(reinterpret_cast<NMLVGETINFOTIP *>(lParam));
-				break;
 
 			case LVN_ITEMCHANGED:
 				OnListViewItemChanged(reinterpret_cast<NMLISTVIEW *>(lParam));
@@ -191,13 +194,11 @@ void ShellBrowser::OnListViewMButtonUp(const POINT *pt)
 
 void ShellBrowser::OnListViewGetDisplayInfo(LPARAM lParam)
 {
-	NMLVDISPINFO	*pnmv = NULL;
-	LVITEM			*plvItem = NULL;
-	NMHDR			*nmhdr = NULL;
+	NMLVDISPINFO	*pnmv = nullptr;
+	LVITEM			*plvItem = nullptr;
 
 	pnmv = (NMLVDISPINFO *)lParam;
 	plvItem = &pnmv->item;
-	nmhdr = &pnmv->hdr;
 
 	int internalIndex = static_cast<int>(plvItem->lParam);
 
@@ -269,7 +270,7 @@ void ShellBrowser::OnListViewGetDisplayInfo(LPARAM lParam)
 	plvItem->mask |= LVIF_DI_SETITEM;
 }
 
-boost::optional<int> ShellBrowser::GetCachedIconIndex(const ItemInfo_t &itemInfo)
+std::optional<int> ShellBrowser::GetCachedIconIndex(const ItemInfo_t &itemInfo)
 {
 	TCHAR filePath[MAX_PATH];
 	HRESULT hr = GetDisplayName(itemInfo.pidlComplete.get(),
@@ -277,14 +278,14 @@ boost::optional<int> ShellBrowser::GetCachedIconIndex(const ItemInfo_t &itemInfo
 
 	if (FAILED(hr))
 	{
-		return boost::none;
+		return std::nullopt;
 	}
 
 	auto cachedItr = m_cachedIcons->findByPath(filePath);
 
 	if (cachedItr == m_cachedIcons->end())
 	{
-		return boost::none;
+		return std::nullopt;
 	}
 
 	return cachedItr->iconIndex;
@@ -352,21 +353,21 @@ void ShellBrowser::QueueInfoTipTask(int internalIndex, const std::wstring &exist
 	m_infoTipResults.insert({ infoTipResultId, std::move(result) });
 }
 
-boost::optional<ShellBrowser::InfoTipResult> ShellBrowser::GetInfoTipAsync(HWND listView, int infoTipResultId,
+std::optional<ShellBrowser::InfoTipResult> ShellBrowser::GetInfoTipAsync(HWND listView, int infoTipResultId,
 	int internalIndex, const BasicItemInfo_t &basicItemInfo, const Config &config, HINSTANCE instance, bool virtualFolder)
 {
 	std::wstring infoTip;
 
 	/* Use Explorer infotips if the option is selected, or this is a
 	virtual folder. Otherwise, show the modified date. */
-	if ((config.infoTipType == INFOTIP_SYSTEM) || virtualFolder)
+	if ((config.infoTipType == InfoTipType::System) || virtualFolder)
 	{
 		TCHAR infoTipText[256];
 		HRESULT hr = GetItemInfoTip(basicItemInfo.pidlComplete.get(), infoTipText, SIZEOF_ARRAY(infoTipText));
 
 		if (FAILED(hr))
 		{
-			return boost::none;
+			return std::nullopt;
 		}
 
 		infoTip = infoTipText;
@@ -382,7 +383,7 @@ boost::optional<ShellBrowser::InfoTipResult> ShellBrowser::GetInfoTipAsync(HWND 
 
 		if (!fileTimeResult)
 		{
-			return boost::none;
+			return std::nullopt;
 		}
 
 		infoTip = str(boost::wformat(_T("%s: %s")) % dateModified % fileModificationText);
@@ -443,7 +444,7 @@ void ShellBrowser::OnListViewItemChanged(const NMLISTVIEW *changeData)
 	if (m_config->checkBoxSelection && (LVIS_STATEIMAGEMASK & changeData->uNewState) != 0)
 	{
 		bool checked = ((changeData->uNewState & LVIS_STATEIMAGEMASK) >> 12) == 2;
-		NListView::ListView_SelectItem(m_hListView, changeData->iItem, checked);
+		ListViewHelper::SelectItem(m_hListView, changeData->iItem, checked);
 	}
 
 	bool previouslySelected = WI_IsFlagSet(changeData->uOldState, LVIS_SELECTED);
@@ -476,20 +477,20 @@ void ShellBrowser::OnListViewItemChanged(const NMLISTVIEW *changeData)
 	listViewSelectionChanged.m_signal();
 }
 
-void ShellBrowser::UpdateFileSelectionInfo(int internalIndex, BOOL Selected)
+void ShellBrowser::UpdateFileSelectionInfo(int internalIndex, BOOL selected)
 {
 	ULARGE_INTEGER	ulFileSize;
-	BOOL			IsFolder;
+	BOOL			isFolder;
 
-	IsFolder = (m_itemInfoMap.at(internalIndex).wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	isFolder = (m_itemInfoMap.at(internalIndex).wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		== FILE_ATTRIBUTE_DIRECTORY;
 
 	ulFileSize.LowPart = m_itemInfoMap.at(internalIndex).wfd.nFileSizeLow;
 	ulFileSize.HighPart = m_itemInfoMap.at(internalIndex).wfd.nFileSizeHigh;
 
-	if (Selected)
+	if (selected)
 	{
-		if (IsFolder)
+		if (isFolder)
 			m_NumFoldersSelected++;
 		else
 			m_NumFilesSelected++;
@@ -498,7 +499,7 @@ void ShellBrowser::UpdateFileSelectionInfo(int internalIndex, BOOL Selected)
 	}
 	else
 	{
-		if (IsFolder)
+		if (isFolder)
 			m_NumFoldersSelected--;
 		else
 			m_NumFilesSelected--;
@@ -516,7 +517,7 @@ void ShellBrowser::OnListViewKeyDown(const NMLVKEYDOWN *lvKeyDown)
 			!IsKeyDown(VK_SHIFT) &&
 			!IsKeyDown(VK_MENU))
 		{
-			NListView::ListView_SelectAllItems(m_hListView, TRUE);
+			ListViewHelper::SelectAllItems(m_hListView, TRUE);
 			SetFocus(m_hListView);
 		}
 		break;
@@ -526,7 +527,7 @@ void ShellBrowser::OnListViewKeyDown(const NMLVKEYDOWN *lvKeyDown)
 			!IsKeyDown(VK_SHIFT) &&
 			!IsKeyDown(VK_MENU))
 		{
-			NListView::ListView_InvertSelection(m_hListView);
+			ListViewHelper::InvertSelection(m_hListView);
 			SetFocus(m_hListView);
 		}
 		break;
@@ -706,7 +707,7 @@ void ShellBrowser::OnListViewHeaderRightClick(const POINTS &cursorPos)
 	}
 
 	int cmd = TrackPopupMenu(headerMenu, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_VERTICAL | TPM_RETURNCMD,
-		cursorPos.x, cursorPos.y, 0, m_hListView, NULL);
+		cursorPos.x, cursorPos.y, 0, m_hListView, nullptr);
 
 	if (cmd == 0)
 	{
@@ -751,12 +752,33 @@ std::vector<unsigned int> GetColumnHeaderMenuList(const std::wstring &directory)
 void ShellBrowser::OnListViewHeaderMenuItemSelected(int menuItemId,
 	const std::unordered_map<int, UINT> &menuItemMappings)
 {
+	if (menuItemId == IDM_HEADER_MORE)
+	{
+		OnShowMoreColumnsSelected();
+	}
+	else
+	{
+		OnColumnMenuItemSelected(menuItemId, menuItemMappings);
+	}
+}
+
+void ShellBrowser::OnShowMoreColumnsSelected()
+{
+	SelectColumnsDialog selectColumnsDialog(
+		m_hResourceModule, m_hListView, this, m_iconResourceLoader);
+	selectColumnsDialog.ShowModalDialog();
+}
+
+void ShellBrowser::OnColumnMenuItemSelected(
+	int menuItemId, const std::unordered_map<int, UINT> &menuItemMappings)
+{
 	auto currentColumns = ExportCurrentColumns();
 
 	UINT columnId = menuItemMappings.at(menuItemId);
-	auto itr = std::find_if(currentColumns.begin(), currentColumns.end(), [columnId] (const Column_t &column) {
-		return column.id == columnId;
-	});
+	auto itr = std::find_if(
+		currentColumns.begin(), currentColumns.end(), [columnId](const Column_t &column) {
+			return column.id == columnId;
+		});
 
 	if (itr == currentColumns.end())
 	{

@@ -20,7 +20,7 @@ void FormatSizeString(ULARGE_INTEGER lFileSize, TCHAR *pszFileSize,
 {
 	static const TCHAR *SIZE_STRINGS[] = {_T("bytes"), _T("KB"), _T("MB"), _T("GB"), _T("TB"), _T("PB")};
 
-	double fFileSize = static_cast<double>(lFileSize.QuadPart);
+	auto fFileSize = static_cast<double>(lFileSize.QuadPart);
 	int iSizeIndex = 0;
 
 	if(bForceSize)
@@ -130,7 +130,7 @@ TCHAR *PrintCommaLargeNum(LARGE_INTEGER lPrint)
 	static TCHAR szBuffer[14];
 	TCHAR *p = &szBuffer[SIZEOF_ARRAY(szBuffer) - 1];
 	static TCHAR chComma = ',';
-	unsigned long long nTemp = (unsigned long long)(lPrint.LowPart + (lPrint.HighPart * pow(2.0, 32.0)));
+	auto nTemp = (unsigned long long)(lPrint.LowPart + (lPrint.HighPart * pow(2.0, 32.0)));
 	int i = 0;
 
 	if(nTemp == 0)
@@ -185,7 +185,7 @@ BOOL CheckWildcardMatch(const TCHAR *szWildcard, const TCHAR *szString, BOOL bCa
 
 		StringCchCopy(szWildcardPattern, SIZEOF_ARRAY(szWildcardPattern), szWildcard);
 
-		szSinglePattern = cstrtok_s(szWildcardPattern, _T(":"), &szRemainingPattern);
+		szSinglePattern = wcstok_s(szWildcardPattern, _T(":"), &szRemainingPattern);
 		PathRemoveBlanks(szSinglePattern);
 
 		while(szSinglePattern != NULL)
@@ -196,7 +196,7 @@ BOOL CheckWildcardMatch(const TCHAR *szWildcard, const TCHAR *szString, BOOL bCa
 			}
 
 			szSearchPattern = szRemainingPattern;
-			szSinglePattern = cstrtok_s(szSearchPattern, _T(":"), &szRemainingPattern);
+			szSinglePattern = wcstok_s(szSearchPattern, _T(":"), &szRemainingPattern);
 			PathRemoveBlanks(szSinglePattern);
 		}
 	}
@@ -339,13 +339,13 @@ void TrimString(std::wstring &str, const std::wstring &strWhitespace)
 	TrimStringRight(str, strWhitespace);
 }
 
-std::string wstrToStr(std::wstring source)
+std::string wstrToStr(const std::wstring &source)
 {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 	return converter.to_bytes(source);
 }
 
-std::wstring strToWstr(std::string source)
+std::wstring strToWstr(const std::string &source)
 {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 	return converter.from_bytes(source);

@@ -5,12 +5,10 @@
 #include "stdafx.h"
 #include "ShellBrowser.h"
 #include "Config.h"
+#include "ItemData.h"
 #include "MainResource.h"
 #include "ViewModes.h"
-#include "../Helper/Controls.h"
-#include "../Helper/FileOperations.h"
-#include "../Helper/FolderSize.h"
-#include "../Helper/Helper.h"
+#include "../Helper/IconFetcher.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/ShellHelper.h"
@@ -19,10 +17,10 @@
 
 HRESULT ShellBrowser::BrowseFolder(PCIDLIST_ABSOLUTE pidlDirectory, bool addHistoryEntry)
 {
-	SetCursor(LoadCursor(NULL, IDC_WAIT));
+	SetCursor(LoadCursor(nullptr, IDC_WAIT));
 
 	auto resetCursor = wil::scope_exit([] {
-		SetCursor(LoadCursor(NULL, IDC_ARROW));
+		SetCursor(LoadCursor(nullptr, IDC_ARROW));
 	});
 
 	if(m_bFolderVisited)
@@ -115,7 +113,7 @@ void ShellBrowser::ResetFolderState()
 	imagelist, and create a new one. */
 	if (m_folderSettings.viewMode == +ViewMode::Thumbnails)
 	{
-		HIMAGELIST himlOld = ListView_GetImageList(m_hListView, LVSIL_NORMAL);
+		auto himlOld = ListView_GetImageList(m_hListView, LVSIL_NORMAL);
 
 		int nItems = ListView_GetItemCount(m_hListView);
 
@@ -216,22 +214,22 @@ HRESULT ShellBrowser::AddItemInternal(PCIDLIST_ABSOLUTE pidlDirectory,
 
 HRESULT ShellBrowser::AddItemInternal(int iItemIndex, int iItemId, BOOL bPosition)
 {
-	AwaitingAdd_t AwaitingAdd;
+	AwaitingAdd_t awaitingAdd;
 
 	if (iItemIndex == -1)
 	{
-		AwaitingAdd.iItem = m_nTotalItems + static_cast<int>(m_AwaitingAddList.size());
+		awaitingAdd.iItem = m_nTotalItems + static_cast<int>(m_AwaitingAddList.size());
 	}
 	else
 	{
-		AwaitingAdd.iItem = iItemIndex;
+		awaitingAdd.iItem = iItemIndex;
 	}
 
-	AwaitingAdd.iItemInternal = iItemId;
-	AwaitingAdd.bPosition = bPosition;
-	AwaitingAdd.iAfter = iItemIndex - 1;
+	awaitingAdd.iItemInternal = iItemId;
+	awaitingAdd.bPosition = bPosition;
+	awaitingAdd.iAfter = iItemIndex - 1;
 
-	m_AwaitingAddList.push_back(AwaitingAdd);
+	m_AwaitingAddList.push_back(awaitingAdd);
 
 	return S_OK;
 }
@@ -324,7 +322,7 @@ void ShellBrowser::InsertAwaitingItems(BOOL bInsertIntoGroup)
 
 	if (m_folderSettings.autoArrange)
 	{
-		NListView::ListView_SetAutoArrange(m_hListView, FALSE);
+		ListViewHelper::SetAutoArrange(m_hListView, FALSE);
 	}
 
 	int nAdded = 0;
@@ -411,7 +409,7 @@ void ShellBrowser::InsertAwaitingItems(BOOL bInsertIntoGroup)
 
 	if (m_folderSettings.autoArrange)
 	{
-		NListView::ListView_SetAutoArrange(m_hListView, TRUE);
+		ListViewHelper::SetAutoArrange(m_hListView, TRUE);
 	}
 
 	m_nTotalItems = nPrevItems + nAdded;
@@ -425,11 +423,11 @@ void ShellBrowser::ApplyFolderEmptyBackgroundImage(bool apply)
 {
 	if (apply)
 	{
-		NListView::ListView_SetBackgroundImage(m_hListView, IDB_FOLDEREMPTY);
+		ListViewHelper::SetBackgroundImage(m_hListView, IDB_FOLDEREMPTY);
 	}
 	else
 	{
-		NListView::ListView_SetBackgroundImage(m_hListView, NULL);
+		ListViewHelper::SetBackgroundImage(m_hListView, NULL);
 	}
 }
 
@@ -437,11 +435,11 @@ void ShellBrowser::ApplyFilteringBackgroundImage(bool apply)
 {
 	if (apply)
 	{
-		NListView::ListView_SetBackgroundImage(m_hListView, IDB_FILTERINGAPPLIED);
+		ListViewHelper::SetBackgroundImage(m_hListView, IDB_FILTERINGAPPLIED);
 	}
 	else
 	{
-		NListView::ListView_SetBackgroundImage(m_hListView, NULL);
+		ListViewHelper::SetBackgroundImage(m_hListView, NULL);
 	}
 }
 
@@ -517,12 +515,12 @@ void ShellBrowser::PlayNavigationSound() const
 {
 	if (m_config->playNavigationSound)
 	{
-		PlaySound(MAKEINTRESOURCE(IDR_WAVE_NAVIGATIONSTART), NULL,
+		PlaySound(MAKEINTRESOURCE(IDR_WAVE_NAVIGATIONSTART), nullptr,
 			SND_RESOURCE | SND_ASYNC);
 	}
 }
 
-NavigationController *ShellBrowser::GetNavigationController() const
+ShellNavigationController *ShellBrowser::GetNavigationController() const
 {
 	return m_navigationController.get();
 }

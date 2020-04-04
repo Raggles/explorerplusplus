@@ -11,8 +11,6 @@
 #include "ShellBrowser.h"
 #include "ViewModes.h"
 #include "../Helper/DropHandler.h"
-#include "../Helper/FileOperations.h"
-#include "../Helper/Helper.h"
 #include "../Helper/ListViewHelper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/ShellHelper.h"
@@ -117,9 +115,9 @@ HRESULT _stdcall ShellBrowser::DragOver(DWORD grfKeyState,POINTL ptl,DWORD *pdwE
 	if(m_bDataAccept)
 	{
 		if(!m_bOverFolder)
-			NListView::ListView_PositionInsertMark(m_hListView,&pt);
+			ListViewHelper::PositionInsertMark(m_hListView,&pt);
 		else
-			NListView::ListView_PositionInsertMark(m_hListView,NULL);
+			ListViewHelper::PositionInsertMark(m_hListView, nullptr);
 	}
 
 	return S_OK;
@@ -138,14 +136,14 @@ DWORD ShellBrowser::CheckItemLocations(IDataObject *pDataObject,int iDroppedItem
 {
 	FORMATETC	ftc;
 	STGMEDIUM	stg;
-	DROPFILES	*pdf = NULL;
+	DROPFILES	*pdf = nullptr;
 	TCHAR		szFullFileName[MAX_PATH];
 	HRESULT		hr;
 	BOOL		bOnSameDrive = FALSE;
 	int			nDroppedFiles;
 
 	ftc.cfFormat	= CF_HDROP;
-	ftc.ptd			= NULL;
+	ftc.ptd			= nullptr;
 	ftc.dwAspect	= DVASPECT_CONTENT;
 	ftc.lindex		= -1;
 	ftc.tymed		= TYMED_HGLOBAL;
@@ -156,10 +154,10 @@ DWORD ShellBrowser::CheckItemLocations(IDataObject *pDataObject,int iDroppedItem
 	{
 		pdf = (DROPFILES *)GlobalLock(stg.hGlobal);
 
-		if(pdf != NULL)
+		if(pdf != nullptr)
 		{
 			/* Request a count of the number of files that have been dropped. */
-			nDroppedFiles = DragQueryFile((HDROP)pdf,0xFFFFFFFF,NULL,NULL);
+			nDroppedFiles = DragQueryFile((HDROP)pdf,0xFFFFFFFF, nullptr,0);
 
 			if(iDroppedItem < nDroppedFiles)
 			{
@@ -324,11 +322,11 @@ void ShellBrowser::HandleDragSelection(const POINT *ppt)
 	}
 }
 
-HRESULT _stdcall ShellBrowser::DragLeave(void)
+HRESULT _stdcall ShellBrowser::DragLeave()
 {
 	m_pDropTargetHelper->DragLeave();
 
-	NListView::ListView_PositionInsertMark(m_hListView,NULL);
+	ListViewHelper::PositionInsertMark(m_hListView, nullptr);
 
 	if(m_bDeselectDropFolder)
 	{
@@ -343,9 +341,9 @@ HRESULT _stdcall ShellBrowser::DragLeave(void)
 
 void ShellBrowser::OnDropFile(const std::list<std::wstring> &PastedFileList, const POINT *ppt)
 {
-	DroppedFile_t DroppedFile;
+	DroppedFile_t droppedFile;
 	POINT ptOrigin;
-	POINT LocalDropPoint;
+	POINT localDropPoint;
 
 	/* Don't reposition the file if it was dropped
 	in a subfolder. */
@@ -353,21 +351,21 @@ void ShellBrowser::OnDropFile(const std::list<std::wstring> &PastedFileList, con
 	{
 		ListView_GetOrigin(m_hListView,&ptOrigin);
 
-		LocalDropPoint = *ppt;
+		localDropPoint = *ppt;
 
-		ScreenToClient(m_hListView,(LPPOINT)&LocalDropPoint);
+		ScreenToClient(m_hListView,(LPPOINT)&localDropPoint);
 
 		/* The location of each of the dropped items will be the same. */
-		DroppedFile.DropPoint.x = ptOrigin.x + LocalDropPoint.x;
-		DroppedFile.DropPoint.y = ptOrigin.y + LocalDropPoint.y;
+		droppedFile.DropPoint.x = ptOrigin.x + localDropPoint.x;
+		droppedFile.DropPoint.y = ptOrigin.y + localDropPoint.y;
 
 		for(const auto &strFilename : PastedFileList)
 		{
-			StringCchCopy(DroppedFile.szFileName,
-				SIZEOF_ARRAY(DroppedFile.szFileName),strFilename.c_str());
-			PathStripPath(DroppedFile.szFileName);
+			StringCchCopy(droppedFile.szFileName,
+				SIZEOF_ARRAY(droppedFile.szFileName),strFilename.c_str());
+			PathStripPath(droppedFile.szFileName);
 
-			m_DroppedFileNameList.push_back(DroppedFile);
+			m_DroppedFileNameList.push_back(droppedFile);
 		}
 	}
 }
@@ -391,9 +389,9 @@ If no modifiers are held down and the source and destination are on different dr
 HRESULT _stdcall ShellBrowser::Drop(IDataObject *pDataObject,
 DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 {
-	FORMATETC		ftcHDrop = {CF_HDROP,NULL,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
+	FORMATETC		ftcHDrop = {CF_HDROP, nullptr,DVASPECT_CONTENT,-1,TYMED_HGLOBAL};
 	STGMEDIUM		stg;
-	DROPFILES		*pdf = NULL;
+	DROPFILES		*pdf = nullptr;
 	POINT			pt;
 	HRESULT			hr;
 	DWORD			dwEffect;
@@ -447,9 +445,9 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 			{
 				pdf = (DROPFILES *)GlobalLock(stg.hGlobal);
 
-				if(pdf != NULL)
+				if(pdf != nullptr)
 				{
-					nDroppedFiles = DragQueryFile((HDROP)pdf,0xFFFFFFFF,NULL,NULL);
+					nDroppedFiles = DragQueryFile((HDROP)pdf,0xFFFFFFFF, nullptr,0);
 
 					/* The drop effect will be the same for all files
 					that are been dragged locally. */
@@ -491,7 +489,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 			files if nothing was actually copied/moved). */
 			if(!m_bOverFolder)
 			{
-				NListView::ListView_SelectAllItems(m_hListView,FALSE);
+				ListViewHelper::SelectAllItems(m_hListView,FALSE);
 			}
 
 			pDropHandler->Release();
@@ -505,7 +503,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 	}*/
 
 	/* Remove the insertion mark from the listview. */
-	NListView::ListView_PositionInsertMark(m_hListView,NULL);
+	ListViewHelper::PositionInsertMark(m_hListView, nullptr);
 
 	//m_bPerformingDrag = FALSE;
 
@@ -515,7 +513,7 @@ DWORD grfKeyState,POINTL ptl,DWORD *pdwEffect)
 /* TODO: This isn't declared. */
 int CALLBACK SortTemporaryStub(LPARAM lParam1,LPARAM lParam2,LPARAM lParamSort)
 {
-	ShellBrowser *pShellBrowser = reinterpret_cast<ShellBrowser *>(lParamSort);
+	auto *pShellBrowser = reinterpret_cast<ShellBrowser *>(lParamSort);
 	return pShellBrowser->SortTemporary(lParam1,lParam2);
 }
 
@@ -539,7 +537,7 @@ void ShellBrowser::RepositionLocalFiles(const POINT *ppt)
 	to be moved. Therefore, if the style is on, turn it
 	off, move the items, and the turn it back on. */
 	if(m_folderSettings.autoArrange)
-		NListView::ListView_SetAutoArrange(m_hListView,FALSE);
+		ListViewHelper::SetAutoArrange(m_hListView,FALSE);
 
 	for(itr = m_DraggedFilesList.begin();
 		itr != m_DraggedFilesList.end();itr++)
@@ -743,7 +741,7 @@ void ShellBrowser::RepositionLocalFiles(const POINT *ppt)
 	}
 
 	if(m_folderSettings.autoArrange)
-		NListView::ListView_SetAutoArrange(m_hListView,TRUE);
+		ListViewHelper::SetAutoArrange(m_hListView,TRUE);
 
 	m_bDragging = FALSE;
 

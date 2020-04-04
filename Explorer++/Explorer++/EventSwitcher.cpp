@@ -10,7 +10,9 @@
 #include "stdafx.h"
 #include "Explorer++.h"
 #include "Explorer++_internal.h"
-#include "Navigation.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "ShellTreeView/ShellTreeView.h"
+#include "TabContainer.h"
 
 void Explorerplusplus::OnCopyItemPath() const
 {
@@ -79,7 +81,7 @@ void Explorerplusplus::OnFileRename()
 		}
 		else if(hFocus == m_hTreeView)
 		{
-			OnTreeViewFileRename();
+			m_shellTreeView->StartRenamingSelectedItem();
 		}
 	}
 }
@@ -129,7 +131,7 @@ void Explorerplusplus::OnShowFileProperties() const
 	}
 	else if(hFocus == m_hTreeView)
 	{
-		OnTreeViewShowFileProperties();
+		m_shellTreeView->ShowPropertiesOfSelectedItem();
 	}
 }
 
@@ -137,14 +139,14 @@ void Explorerplusplus::OnRightClick(NMHDR *nmhdr)
 {
 	if(nmhdr->hwndFrom == m_hActiveListView)
 	{
-		POINT CursorPos;
+		POINT cursorPos;
 		DWORD dwPos;
 
 		dwPos = GetMessagePos();
-		CursorPos.x = GET_X_LPARAM(dwPos);
-		CursorPos.y = GET_Y_LPARAM(dwPos);
+		cursorPos.x = GET_X_LPARAM(dwPos);
+		cursorPos.y = GET_Y_LPARAM(dwPos);
 
-		OnListViewRClick(&CursorPos);
+		OnListViewRClick(&cursorPos);
 	}
 }
 
@@ -164,7 +166,7 @@ void Explorerplusplus::OnPaste()
 	}
 }
 
-BOOL Explorerplusplus::OnMouseWheel(MousewheelSource_t MousewheelSource, WPARAM wParam, LPARAM lParam)
+BOOL Explorerplusplus::OnMouseWheel(MousewheelSource mousewheelSource, WPARAM wParam, LPARAM lParam)
 {
 	short zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 	m_zDeltaTotal += zDelta;
@@ -190,12 +192,14 @@ BOOL Explorerplusplus::OnMouseWheel(MousewheelSource_t MousewheelSource, WPARAM 
 	{
 		if (wParam & MK_CONTROL)
 		{
+			Tab &selectedTab = m_tabContainer->GetSelectedTab();
+
 			/* Switch listview views. For each wheel delta
 			(notch) the wheel is scrolled through, switch
 			the view once. */
 			for (int i = 0; i < abs(m_zDeltaTotal / WHEEL_DELTA); i++)
 			{
-				CycleViewState((m_zDeltaTotal > 0));
+				selectedTab.GetShellBrowser()->CycleViewMode((m_zDeltaTotal > 0));
 			}
 		}
 		else if (wParam & MK_SHIFT)
@@ -218,7 +222,7 @@ BOOL Explorerplusplus::OnMouseWheel(MousewheelSource_t MousewheelSource, WPARAM 
 		}
 		else
 		{
-			if (MousewheelSource != MOUSEWHEEL_SOURCE_LISTVIEW)
+			if (mousewheelSource != MousewheelSource::ListView)
 			{
 				bMessageHandled = TRUE;
 				SendMessage(m_hActiveListView, WM_MOUSEWHEEL, wParam, lParam);
@@ -227,7 +231,7 @@ BOOL Explorerplusplus::OnMouseWheel(MousewheelSource_t MousewheelSource, WPARAM 
 	}
 	else if (hwnd == m_hTreeView)
 	{
-		if (MousewheelSource != MOUSEWHEEL_SOURCE_TREEVIEW)
+		if (mousewheelSource != MousewheelSource::TreeView)
 		{
 			bMessageHandled = TRUE;
 			SendMessage(m_hTreeView, WM_MOUSEWHEEL, wParam, lParam);
@@ -237,9 +241,9 @@ BOOL Explorerplusplus::OnMouseWheel(MousewheelSource_t MousewheelSource, WPARAM 
 	{
 		bMessageHandled = TRUE;
 
-		HWND hUpDown = FindWindowEx(m_tabContainer->GetHWND(), NULL, UPDOWN_CLASS, NULL);
+		HWND hUpDown = FindWindowEx(m_tabContainer->GetHWND(), nullptr, UPDOWN_CLASS, nullptr);
 
-		if (hUpDown != NULL)
+		if (hUpDown != nullptr)
 		{
 			BOOL bSuccess;
 			int iPos = static_cast<int>(SendMessage(hUpDown, UDM_GETPOS32, 0, reinterpret_cast<LPARAM>(&bSuccess)));

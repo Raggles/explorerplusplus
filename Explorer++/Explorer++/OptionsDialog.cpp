@@ -13,14 +13,18 @@
 #include "stdafx.h"
 #include "OptionsDialog.h"
 #include "Config.h"
+#include "CoreInterface.h"
 #include "Explorer++_internal.h"
 #include "MainResource.h"
-#include "ModelessDialogs.h"
 #include "ResourceHelper.h"
 #include "SetDefaultColumnsDialog.h"
+#include "ShellBrowser/ShellBrowser.h"
+#include "ShellBrowser/ShellNavigationController.h"
 #include "ShellBrowser/ViewModes.h"
+#include "TabContainer.h"
 #include "ViewModeHelper.h"
 #include "../Helper/ListViewHelper.h"
+#include "../Helper/Helper.h"
 #include "../Helper/Macros.h"
 #include "../Helper/ProcessHelper.h"
 #include "../Helper/SetDefaultFileManager.h"
@@ -102,8 +106,8 @@ HWND OptionsDialog::Show(HWND parentWindow)
 	psh.pfnCallback	= nullptr;
 	HWND propertySheet = reinterpret_cast<HWND>(PropertySheet(&psh));
 
-	m_windowSubclasses.push_back(WindowSubclassWrapper(propertySheet, PropSheetProcStub,
-		PROP_SHEET_SUBCLASS_ID, reinterpret_cast<DWORD_PTR>(this)));
+	m_windowSubclasses.emplace_back(propertySheet, PropSheetProcStub,
+		PROP_SHEET_SUBCLASS_ID, reinterpret_cast<DWORD_PTR>(this));
 
 	CenterWindow(parentWindow, propertySheet);
 
@@ -127,7 +131,7 @@ LRESULT CALLBACK OptionsDialog::PropSheetProcStub(HWND hwnd, UINT uMsg,
 {
 	UNREFERENCED_PARAMETER(uIdSubclass);
 
-	OptionsDialog *optionsDialog = reinterpret_cast<OptionsDialog *>(dwRefData);
+	auto *optionsDialog = reinterpret_cast<OptionsDialog *>(dwRefData);
 	return optionsDialog->PropSheetProc(hwnd, uMsg, wParam, lParam);
 }
 
@@ -138,7 +142,6 @@ LRESULT CALLBACK OptionsDialog::PropSheetProc(HWND hwnd, UINT uMsg, WPARAM wPara
 	case WM_NCDESTROY:
 		delete this;
 		return 0;
-		break;
 	}
 
 	return DefSubclassProc(hwnd, uMsg, wParam, lParam);
@@ -152,7 +155,7 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProcStub(HWND hDlg,UINT uMsg,WPAR
 	{
 		case WM_INITDIALOG:
 			{
-				PROPSHEETPAGE *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
+				auto *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
 				optionsDialog = reinterpret_cast<OptionsDialog *>(ppsp->lParam);
 			}
 			break;
@@ -173,17 +176,17 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 
 				switch(m_config->startupMode)
 				{
-				case STARTUP_PREVIOUSTABS:
+				case StartupMode::PreviousTabs:
 					nIDButton = IDC_STARTUP_PREVIOUSTABS;
 					break;
 
-				case STARTUP_DEFAULTFOLDER:
+				case StartupMode::DefaultFolder:
 					nIDButton = IDC_STARTUP_DEFAULTFOLDER;
 					break;
 
 				default:
 					nIDButton = IDC_STARTUP_PREVIOUSTABS;
-					m_config->startupMode = STARTUP_PREVIOUSTABS;
+					m_config->startupMode = StartupMode::PreviousTabs;
 					break;
 				}
 				CheckDlgButton(hDlg,nIDButton,BST_CHECKED);
@@ -265,7 +268,7 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 
 		case WM_NOTIFY:
 		{
-			NMHDR	*nmhdr = NULL;
+			NMHDR	*nmhdr = nullptr;
 			nmhdr = (NMHDR *)lParam;
 
 			switch(nmhdr->code)
@@ -275,30 +278,30 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 						HWND hEdit;
 						TCHAR szNewTabDir[MAX_PATH];
 						TCHAR szVirtualParsingPath[MAX_PATH];
-						NDefaultFileManager::ReplaceExplorerModes_t ReplaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_NONE;
+						NDefaultFileManager::ReplaceExplorerModes_t replaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_NONE;
 						BOOL bSuccess;
 						HRESULT hr;
 						int iSel;
 
 						if(IsDlgButtonChecked(hDlg,IDC_STARTUP_PREVIOUSTABS) == BST_CHECKED)
-							m_config->startupMode = STARTUP_PREVIOUSTABS;
+							m_config->startupMode = StartupMode::PreviousTabs;
 						else if(IsDlgButtonChecked(hDlg,IDC_STARTUP_DEFAULTFOLDER) == BST_CHECKED)
-							m_config->startupMode = STARTUP_DEFAULTFOLDER;
+							m_config->startupMode = StartupMode::DefaultFolder;
 
 						if(IsDlgButtonChecked(hDlg,IDC_OPTION_REPLACEEXPLORER_NONE) == BST_CHECKED)
-							ReplaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_NONE;
+							replaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_NONE;
 						else if(IsDlgButtonChecked(hDlg,IDC_OPTION_REPLACEEXPLORER_FILESYSTEM) == BST_CHECKED)
-							ReplaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_FILESYSTEM;
+							replaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_FILESYSTEM;
 						else if(IsDlgButtonChecked(hDlg,IDC_OPTION_REPLACEEXPLORER_ALL) == BST_CHECKED)
-							ReplaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_ALL;
+							replaceExplorerMode = NDefaultFileManager::REPLACEEXPLORER_ALL;
 
-						if(m_config->replaceExplorerMode != ReplaceExplorerMode)
+						if(m_config->replaceExplorerMode != replaceExplorerMode)
 						{
 							bSuccess = TRUE;
 
 							std::wstring menuText = ResourceHelper::LoadString(m_instance, IDS_OPEN_IN_EXPLORERPLUSPLUS);
 
-							switch(ReplaceExplorerMode)
+							switch(replaceExplorerMode)
 							{
 							case NDefaultFileManager::REPLACEEXPLORER_NONE:
 								{
@@ -336,7 +339,7 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 
 							if(bSuccess)
 							{
-								m_config->replaceExplorerMode = ReplaceExplorerMode;
+								m_config->replaceExplorerMode = replaceExplorerMode;
 							}
 							else
 							{
@@ -345,7 +348,7 @@ INT_PTR CALLBACK OptionsDialog::GeneralSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 
 								int nIDButton;
 
-								switch(ReplaceExplorerMode)
+								switch(replaceExplorerMode)
 								{
 								case NDefaultFileManager::REPLACEEXPLORER_NONE:
 									nIDButton = IDC_OPTION_REPLACEEXPLORER_NONE;
@@ -442,7 +445,7 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProcStub(HWND hDlg,UINT uMsg,WPARAM 
 	{
 		case WM_INITDIALOG:
 			{
-				PROPSHEETPAGE *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
+				auto *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
 				optionsDialog = reinterpret_cast<OptionsDialog *>(ppsp->lParam);
 			}
 			break;
@@ -491,7 +494,7 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProc(HWND hDlg,UINT uMsg,WPARAM wPar
 				if(m_config->showInfoTips)
 					CheckDlgButton(hDlg,IDC_OPTIONS_CHECK_SHOWINFOTIPS,BST_CHECKED);
 
-				if(m_config->infoTipType == INFOTIP_SYSTEM)
+				if(m_config->infoTipType == InfoTipType::System)
 					CheckDlgButton(hDlg,IDC_OPTIONS_RADIO_SYSTEMINFOTIPS,BST_CHECKED);
 				else
 					CheckDlgButton(hDlg,IDC_OPTIONS_RADIO_CUSTOMINFOTIPS,BST_CHECKED);
@@ -576,7 +579,7 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProc(HWND hDlg,UINT uMsg,WPARAM wPar
 
 		case WM_NOTIFY:
 			{
-				NMHDR	*nmhdr = NULL;
+				NMHDR	*nmhdr = nullptr;
 				nmhdr = (NMHDR *)lParam;
 
 				switch(nmhdr->code)
@@ -601,7 +604,7 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProc(HWND hDlg,UINT uMsg,WPARAM wPar
 						m_config->globalFolderSettings.oneClickActivate = (IsDlgButtonChecked(hDlg,IDC_SETTINGS_CHECK_SINGLECLICK)
 							== BST_CHECKED);
 
-						m_config->globalFolderSettings.oneClickActivateHoverTime = GetDlgItemInt(hDlg,IDC_OPTIONS_HOVER_TIME,NULL,FALSE);
+						m_config->globalFolderSettings.oneClickActivateHoverTime = GetDlgItemInt(hDlg,IDC_OPTIONS_HOVER_TIME, nullptr,FALSE);
 
 						m_config->overwriteExistingFilesConfirmation = (IsDlgButtonChecked(hDlg,IDC_SETTINGS_CHECK_EXISTINGFILESCONFIRMATION)
 							== BST_CHECKED);
@@ -629,9 +632,9 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProc(HWND hDlg,UINT uMsg,WPARAM wPar
 							== BST_CHECKED);
 
 						if(IsDlgButtonChecked(hDlg,IDC_OPTIONS_RADIO_SYSTEMINFOTIPS) == BST_CHECKED)
-							m_config->infoTipType = INFOTIP_SYSTEM;
+							m_config->infoTipType = InfoTipType::System;
 						else
-							m_config->infoTipType = INFOTIP_CUSTOM;
+							m_config->infoTipType = InfoTipType::Custom;
 
 						hCBSize = GetDlgItem(hDlg,IDC_COMBO_FILESIZES);
 
@@ -642,7 +645,7 @@ INT_PTR CALLBACK OptionsDialog::FilesFoldersProc(HWND hDlg,UINT uMsg,WPARAM wPar
 						{
 							tab->GetShellBrowser()->GetNavigationController()->Refresh();
 
-							NListView::ListView_ActivateOneClickSelect(tab->GetShellBrowser()->GetListView(),
+							ListViewHelper::ActivateOneClickSelect(tab->GetShellBrowser()->GetListView(),
 								m_config->globalFolderSettings.oneClickActivate,
 								m_config->globalFolderSettings.oneClickActivateHoverTime);
 						}
@@ -670,7 +673,7 @@ INT_PTR CALLBACK OptionsDialog::WindowProcStub(HWND hDlg,UINT uMsg,WPARAM wParam
 	{
 		case WM_INITDIALOG:
 			{
-				PROPSHEETPAGE *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
+				auto *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
 				optionsDialog = reinterpret_cast<OptionsDialog *>(ppsp->lParam);
 			}
 			break;
@@ -743,7 +746,7 @@ INT_PTR CALLBACK OptionsDialog::WindowProc(HWND hDlg,UINT uMsg,WPARAM wParam,LPA
 
 	case WM_NOTIFY:
 		{
-			NMHDR	*nmhdr = NULL;
+			NMHDR	*nmhdr = nullptr;
 			nmhdr = (NMHDR *)lParam;
 
 			switch(nmhdr->code)
@@ -795,7 +798,7 @@ INT_PTR CALLBACK OptionsDialog::WindowProc(HWND hDlg,UINT uMsg,WPARAM wParam,LPA
 					{
 						for (auto &tab : m_tabContainer->GetAllTabs() | boost::adaptors::map_values)
 						{
-							DWORD dwExtendedStyle = ListView_GetExtendedListViewStyle(tab->GetShellBrowser()->GetListView());
+							auto dwExtendedStyle = ListView_GetExtendedListViewStyle(tab->GetShellBrowser()->GetListView());
 
 							if(bCheckBoxSelection)
 							{
@@ -825,7 +828,7 @@ INT_PTR CALLBACK OptionsDialog::WindowProc(HWND hDlg,UINT uMsg,WPARAM wParam,LPA
 						changes itself. */
 						tab->GetShellBrowser()->OnGridlinesSettingChanged();
 
-						NListView::ListView_AddRemoveExtendedStyle(tab->GetShellBrowser()->GetListView(),
+						ListViewHelper::AddRemoveExtendedStyle(tab->GetShellBrowser()->GetListView(),
 							LVS_EX_FULLROWSELECT,m_config->useFullRowSelect);
 					}
 
@@ -852,7 +855,7 @@ INT_PTR CALLBACK OptionsDialog::TabSettingsProcStub(HWND hDlg,UINT uMsg,WPARAM w
 	{
 		case WM_INITDIALOG:
 			{
-				PROPSHEETPAGE *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
+				auto *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
 				optionsDialog = reinterpret_cast<OptionsDialog *>(ppsp->lParam);
 			}
 			break;
@@ -901,7 +904,7 @@ INT_PTR CALLBACK OptionsDialog::TabSettingsProc(HWND hDlg,UINT uMsg,WPARAM wPara
 
 		case WM_NOTIFY:
 			{
-				NMHDR	*nmhdr = NULL;
+				NMHDR	*nmhdr = nullptr;
 				nmhdr = (NMHDR *)lParam;
 
 				switch(nmhdr->code)
@@ -952,7 +955,7 @@ INT_PTR CALLBACK OptionsDialog::DefaultSettingsProcStub(HWND hDlg,UINT uMsg,WPAR
 	{
 		case WM_INITDIALOG:
 			{
-				PROPSHEETPAGE *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
+				auto *ppsp = reinterpret_cast<PROPSHEETPAGE *>(lParam);
 				optionsDialog = reinterpret_cast<OptionsDialog *>(ppsp->lParam);
 			}
 			break;
@@ -980,28 +983,28 @@ INT_PTR CALLBACK OptionsDialog::DefaultSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 					CheckDlgButton(hDlg,IDC_SORTASCENDINGGLOBAL,BST_CHECKED);
 
 				HWND hComboBox = GetDlgItem(hDlg,IDC_OPTIONS_DEFAULT_VIEW);
-				int SelectedIndex = -1;
+				int selectedIndex = -1;
 
 				for(auto viewMode : VIEW_MODES)
 				{
-					int StringID = GetViewModeMenuStringId(viewMode);
+					int stringId = GetViewModeMenuStringId(viewMode);
 
-					std::wstring viewModeText = ResourceHelper::LoadString(m_instance, StringID);
+					std::wstring viewModeText = ResourceHelper::LoadString(m_instance, stringId);
 
-					int Index = static_cast<int>(SendMessage(hComboBox, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(viewModeText.c_str())));
+					int index = static_cast<int>(SendMessage(hComboBox, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(viewModeText.c_str())));
 
-					if(Index != CB_ERR)
+					if(index != CB_ERR)
 					{
-						SendMessage(hComboBox,CB_SETITEMDATA,Index,viewMode);
+						SendMessage(hComboBox,CB_SETITEMDATA,index,viewMode);
 					}
 
 					if(viewMode == m_config->defaultFolderSettings.viewMode)
 					{
-						SelectedIndex = Index;
+						selectedIndex = index;
 					}
 				}
 
-				SendMessage(hComboBox,CB_SETCURSEL,SelectedIndex,0);
+				SendMessage(hComboBox,CB_SETCURSEL,selectedIndex,0);
 			}
 			break;
 
@@ -1039,7 +1042,7 @@ INT_PTR CALLBACK OptionsDialog::DefaultSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 
 		case WM_NOTIFY:
 			{
-				NMHDR	*nmhdr = NULL;
+				NMHDR	*nmhdr = nullptr;
 				nmhdr = (NMHDR *)lParam;
 
 				switch(nmhdr->code)
@@ -1059,9 +1062,9 @@ INT_PTR CALLBACK OptionsDialog::DefaultSettingsProc(HWND hDlg,UINT uMsg,WPARAM w
 							== BST_CHECKED);
 
 						HWND hComboBox = GetDlgItem(hDlg,IDC_OPTIONS_DEFAULT_VIEW);
-						int SelectedIndex = static_cast<int>(SendMessage(hComboBox,CB_GETCURSEL,0,0));
+						int selectedIndex = static_cast<int>(SendMessage(hComboBox,CB_GETCURSEL,0,0));
 						m_config->defaultFolderSettings.viewMode = ViewMode::_from_integral(
-							static_cast<int>(SendMessage(hComboBox, CB_GETITEMDATA, SelectedIndex, 0)));
+							static_cast<int>(SendMessage(hComboBox, CB_GETITEMDATA, selectedIndex, 0)));
 
 						m_expp->SaveAllSettings();
 					}
@@ -1102,10 +1105,10 @@ void OptionsDialog::OnDefaultSettingsNewTabDir(HWND hDlg)
 		StringCchCopy(g_szNewTabDirectory,SIZEOF_ARRAY(g_szNewTabDirectory),
 		szNewTabDir);
 
-	CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
+	CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
 
 	bi.hwndOwner		= hDlg;
-	bi.pidlRoot			= NULL;
+	bi.pidlRoot			= nullptr;
 	bi.pszDisplayName	= szDisplayName;
 	bi.lpszTitle		= helperText.c_str();
 	bi.ulFlags			= BIF_NEWDIALOGSTYLE;
@@ -1115,7 +1118,7 @@ void OptionsDialog::OnDefaultSettingsNewTabDir(HWND hDlg)
 
 	CoUninitialize();
 
-	if(pidl != NULL)
+	if(pidl != nullptr)
 	{
 		hEdit = GetDlgItem(hDlg,IDC_DEFAULT_NEWTABDIR_EDIT);
 
@@ -1151,16 +1154,16 @@ void OptionsDialog::DefaultSettingsSetNewTabDir(HWND hEdit, const TCHAR *szPath)
 
 void OptionsDialog::DefaultSettingsSetNewTabDir(HWND hEdit, PCIDLIST_ABSOLUTE pidl)
 {
-	SFGAOF			Attributes;
+	SFGAOF			attributes;
 	DWORD			uNameFlags;
 	TCHAR			szNewTabDir[MAX_PATH];
 
-	Attributes = SFGAO_FILESYSTEM;
+	attributes = SFGAO_FILESYSTEM;
 
 	/* Check if the specified folder is real or virtual. */
-	GetItemAttributes(pidl,&Attributes);
+	GetItemAttributes(pidl,&attributes);
 
-	if(Attributes & SFGAO_FILESYSTEM)
+	if(attributes & SFGAO_FILESYSTEM)
 		uNameFlags = SHGDN_FORPARSING;
 	else
 		uNameFlags = SHGDN_INFOLDER;
@@ -1204,15 +1207,12 @@ UINT GetIconThemeStringResourceId(IconTheme iconTheme)
 	{
 	case IconTheme::Color:
 		return IDS_ICON_THEME_COLOR;
-		break;
 
 	case IconTheme::Windows10:
 		return IDS_ICON_THEME_WINDOWS_10;
-		break;
 
 	default:
 		throw std::runtime_error("IconTheme value not found");
-		break;
 	}
 }
 

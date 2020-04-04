@@ -6,11 +6,10 @@
 #include "ListViewHelper.h"
 #include "Macros.h"
 
-
 BOOL GetListViewItem(HWND hListView, LVITEM *pLVItem, UINT mask, UINT stateMask,
 	int iItem, int iSubItem, TCHAR *pszText, int cchMax);
 
-void NListView::ListView_SelectItem(HWND hListView,int iItem,BOOL bSelect)
+void ListViewHelper::SelectItem(HWND hListView,int iItem,BOOL bSelect)
 {
 	UINT uNewState;
 
@@ -26,7 +25,7 @@ void NListView::ListView_SelectItem(HWND hListView,int iItem,BOOL bSelect)
 	ListView_SetItemState(hListView,iItem,uNewState,LVIS_SELECTED);
 }
 
-void NListView::ListView_SelectAllItems(HWND hListView,BOOL bSelect)
+void ListViewHelper::SelectAllItems(HWND hListView,BOOL bSelect)
 {
 	UINT uNewState;
 
@@ -44,7 +43,7 @@ void NListView::ListView_SelectAllItems(HWND hListView,BOOL bSelect)
 	SendMessage(hListView,WM_SETREDRAW,TRUE,0);
 }
 
-int NListView::ListView_InvertSelection(HWND hListView)
+int ListViewHelper::InvertSelection(HWND hListView)
 {
 	int nTotalItems = ListView_GetItemCount(hListView);
 
@@ -56,11 +55,11 @@ int NListView::ListView_InvertSelection(HWND hListView)
 	{
 		if(ListView_GetItemState(hListView,i,LVIS_SELECTED) == LVIS_SELECTED)
 		{
-			ListView_SelectItem(hListView,i,FALSE);
+			SelectItem(hListView,i,FALSE);
 		}
 		else
 		{
-			ListView_SelectItem(hListView,i,TRUE);
+			SelectItem(hListView,i,TRUE);
 			nSelected++;
 		}
 	}
@@ -70,7 +69,7 @@ int NListView::ListView_InvertSelection(HWND hListView)
 	return nSelected;
 }
 
-void NListView::ListView_FocusItem(HWND hListView,int iItem,BOOL bFocus)
+void ListViewHelper::FocusItem(HWND hListView,int iItem,BOOL bFocus)
 {
 	UINT uNewState;
 
@@ -86,9 +85,9 @@ void NListView::ListView_FocusItem(HWND hListView,int iItem,BOOL bFocus)
 	ListView_SetItemState(hListView,iItem,uNewState,LVIS_FOCUSED);
 }
 
-void NListView::ListView_SetGridlines(HWND hListView,BOOL bEnableGridlines)
+void ListViewHelper::SetGridlines(HWND hListView,BOOL bEnableGridlines)
 {
-	DWORD dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
+	auto dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
 
 	if(bEnableGridlines)
 	{
@@ -108,7 +107,7 @@ void NListView::ListView_SetGridlines(HWND hListView,BOOL bEnableGridlines)
 	ListView_SetExtendedListViewStyle(hListView,dwExtendedStyle);
 }
 
-BOOL NListView::ListView_SetAutoArrange(HWND hListView,BOOL bAutoArrange)
+BOOL ListViewHelper::SetAutoArrange(HWND hListView,BOOL bAutoArrange)
 {
 	LONG_PTR lStyle = GetWindowLongPtr(hListView,GWL_STYLE);
 
@@ -143,9 +142,9 @@ BOOL NListView::ListView_SetAutoArrange(HWND hListView,BOOL bAutoArrange)
 	return TRUE;
 }
 
-void NListView::ListView_ActivateOneClickSelect(HWND hListView,BOOL bActivate,UINT uHoverTime)
+void ListViewHelper::ActivateOneClickSelect(HWND hListView,BOOL bActivate,UINT uHoverTime)
 {
-	DWORD dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
+	auto dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
 
 	/* The three styles below are used to control one-click
 	selection. */
@@ -190,9 +189,9 @@ void NListView::ListView_ActivateOneClickSelect(HWND hListView,BOOL bActivate,UI
 	}
 }
 
-void NListView::ListView_AddRemoveExtendedStyle(HWND hListView,DWORD dwStyle,BOOL bAdd)
+void ListViewHelper::AddRemoveExtendedStyle(HWND hListView,DWORD dwStyle,BOOL bAdd)
 {
-	DWORD dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
+	auto dwExtendedStyle = ListView_GetExtendedListViewStyle(hListView);
 
 	if(bAdd)
 	{
@@ -216,7 +215,7 @@ void NListView::ListView_AddRemoveExtendedStyle(HWND hListView,DWORD dwStyle,BOO
 listview. uImage should be the index
 of a bitmap resource in the current
 executable. */
-BOOL NListView::ListView_SetBackgroundImage(HWND hListView,UINT uImage)
+BOOL ListViewHelper::SetBackgroundImage(HWND hListView,UINT uImage)
 {
 	TCHAR szModuleName[MAX_PATH];
 	DWORD dwRet = GetModuleFileName(NULL,szModuleName,SIZEOF_ARRAY(szModuleName));
@@ -269,7 +268,7 @@ BOOL GetListViewItem(HWND hListView, LVITEM *pLVItem, UINT mask, UINT stateMask,
 	return ListView_GetItem(hListView, pLVItem);
 }
 
-BOOL NListView::ListView_SwapItems(HWND hListView, int iItem1, int iItem2, BOOL bSwapLPARAM)
+BOOL ListViewHelper::SwapItems(HWND hListView, int iItem1, int iItem2, BOOL bSwapLPARAM)
 {
 	UINT mask = LVIF_IMAGE | LVIF_INDENT | LVIF_STATE | LVIF_TEXT;
 	UINT stateMask = static_cast<UINT>(-1);
@@ -316,7 +315,7 @@ BOOL NListView::ListView_SwapItems(HWND hListView, int iItem1, int iItem2, BOOL 
 	return TRUE;
 }
 
-void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
+void ListViewHelper::PositionInsertMark(HWND hListView,const POINT *ppt)
 {
 	/* Remove the insertion mark. */
 	if(ppt == NULL)
@@ -330,7 +329,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 		return;
 	}
 
-	RECT ItemRect;
+	RECT itemRect;
 	DWORD dwFlags = 0;
 	int iNext;
 	BOOL bRet;
@@ -342,7 +341,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 
 	if(iItem != -1 && item.flags & LVHT_ONITEM)
 	{
-		bRet = ListView_GetItemRect(hListView,item.iItem,&ItemRect,LVIR_BOUNDS);
+		bRet = ListView_GetItemRect(hListView,item.iItem,&itemRect,LVIR_BOUNDS);
 
 		/* If the cursor is on the left side
 		of this item, set the insertion before
@@ -350,7 +349,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 		of this item, set the insertion mark
 		after this item. */
 		if(bRet &&
-			(ppt->x - ItemRect.left) > ((ItemRect.right - ItemRect.left)/2))
+			(ppt->x - itemRect.left) > ((itemRect.right - itemRect.left)/2))
 		{
 			iNext = iItem;
 			dwFlags = LVIM_AFTER;
@@ -384,7 +383,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 			iNext = ListView_FindItem(hListView,-1,&lvfi);
 		}
 
-		bRet = ListView_GetItemRect(hListView,iNext,&ItemRect,LVIR_BOUNDS);
+		bRet = ListView_GetItemRect(hListView,iNext,&itemRect,LVIR_BOUNDS);
 
 		/* This situation only occurs at the
 		end of the row. Prior to this, it is
@@ -395,7 +394,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 		item found will be on the left side of
 		the cursor. */
 		if(bRet &&
-			ppt->x > (ItemRect.left + ((ItemRect.right - ItemRect.left)/2)))
+			ppt->x > (itemRect.left + ((itemRect.right - itemRect.left)/2)))
 		{
 			/* At the end of a row, VK_UP appears to
 			find the next item up. Therefore, if we're
@@ -404,7 +403,7 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 			one under it instead (if there is an item
 			under it), and anchor the insertion mark
 			there. */
-			if(ppt->y > ItemRect.bottom)
+			if(ppt->y > itemRect.bottom)
 			{
 				int iBelow;
 
@@ -420,15 +419,15 @@ void NListView::ListView_PositionInsertMark(HWND hListView,const POINT *ppt)
 		int nItems = ListView_GetItemCount(hListView);
 
 		/* Last item is at position nItems - 1. */
-		bRet = ListView_GetItemRect(hListView,nItems - 1,&ItemRect,LVIR_BOUNDS);
+		bRet = ListView_GetItemRect(hListView,nItems - 1,&itemRect,LVIR_BOUNDS);
 
 		/* Special case needed for very last item. If cursor is within 0.5 to 1.5 width
 		of last item, and is greater than it's y coordinate, snap the insertion mark to
 		this item. */
 		if(bRet &&
-			ppt->x > (ItemRect.left + ((ItemRect.right - ItemRect.left)/2)) &&
-			ppt->x < (ItemRect.right + ((ItemRect.right - ItemRect.left)/2) + 2) &&
-			ppt->y > ItemRect.top)
+			ppt->x > (itemRect.left + ((itemRect.right - itemRect.left)/2)) &&
+			ppt->x < (itemRect.right + ((itemRect.right - itemRect.left)/2) + 2) &&
+			ppt->y > itemRect.top)
 		{
 			iNext = nItems - 1;
 			dwFlags = LVIM_AFTER;

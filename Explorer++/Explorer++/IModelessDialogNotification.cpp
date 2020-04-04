@@ -4,7 +4,6 @@
 
 #include "stdafx.h"
 #include "IModelessDialogNotification.h"
-#include "Explorer++_internal.h"
 #include "MainResource.h"
 #include "ModelessDialogs.h"
 
@@ -15,12 +14,12 @@ m_RefCount(1)
 
 }
 
-ULONG ModelessDialogNotification::AddRef(void)
+ULONG ModelessDialogNotification::AddRef()
 {
 	return ++m_RefCount;
 }
 
-ULONG ModelessDialogNotification::Release(void)
+ULONG ModelessDialogNotification::Release()
 {
 	m_RefCount--;
 	
@@ -38,15 +37,15 @@ void ModelessDialogNotification::OnModelessDialogDestroy(int iResource)
 	switch(iResource)
 	{
 	case IDD_SEARCH:
-		g_hwndSearch = NULL;
+		g_hwndSearch = nullptr;
 		break;
 
 	case IDD_SCRIPTING:
-		g_hwndRunScript = NULL;
+		g_hwndRunScript = nullptr;
 		break;
 
 	case IDD_MANAGE_BOOKMARKS:
-		g_hwndManageBookmarks = NULL;
+		g_hwndManageBookmarks = nullptr;
 		break;
 	}
 }
